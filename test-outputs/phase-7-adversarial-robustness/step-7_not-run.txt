@@ -1,0 +1,5 @@
+Phase 7 — Adversarial Robustness
+
+NOT RUN in the 2026-11-16 validation: optional extra requiring
+adversarial-robustness-toolbox (install with `pip install -e ".[adversarial]"`).
+Planned for the post-modernization roadmap (Phase 3: validation enhancements).

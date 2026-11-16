@@ -1,0 +1,17 @@
+Phase 0 — Hardware & Computational Environment
+Date: 2026-11-16
+Machine: MacBook Pro M2 Max (38-core GPU, 64 GB unified memory)
+OS: macOS (Darwin 27.2.0)
+Python: 3.11.5
+numpy: 1.24.3
+pandas: 2.3.3
+scipy: 1.15.3
+scikit-learn: 1.5.2
+imbalanced-learn: 0.12.4
+dpkt: 1.9.8
+tensorflow: 2.13.0 (+ tensorflow-metal 1.0.1)
+GPU devices: [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
+
+Package imports: iot_anomaly.data / models / training / evaluation — OK
+iot-train --help: exit 0 (OK)
+iot-process-pcap --help: exit 0 (OK)

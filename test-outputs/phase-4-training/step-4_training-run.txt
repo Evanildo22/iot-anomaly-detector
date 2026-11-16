@@ -1,0 +1,8 @@
+Phase 4 — Two-Phase Training (smoke scale: 60,000 samples,
+2 pretrain + 3 finetune epochs; report hyperparameters otherwise)
+
+split sizes — train 39000 | val 9000 | test 9000 | realtime 3000
+Phase 1 (autoencoder MSE pretraining): converged, val_loss ~0.45
+Phase 2 (classifier BCE fine-tuning): val_accuracy > 0.997 by epoch 3
+best checkpoint reloaded; optimal F1 threshold (val): 0.1617
+PASS — full 30+50-epoch training is documented in the 2024 report

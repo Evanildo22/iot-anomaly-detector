@@ -1,0 +1,6 @@
+Phase 8 — Real-Time Inference
+
+  realtime hold-out: 3000 samples (5% split, untouched by training)
+  threshold: 0.1617
+  F1: 0.9963
+  PASS

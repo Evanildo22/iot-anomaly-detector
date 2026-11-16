@@ -1,0 +1,19 @@
+Phase 6 — PCAP Pipeline (CTU-IoT-Malware-Capture-34-1, irc.pcap, 3.6 MB)
+Command: iot-process-pcap --pcap <scenario>/2018-12-21-15-50-14-192.168.1.195.irc.pcap --labels <scenario>/bro/conn.log.labeled --output ctu_features.csv
+
+2026-11-16 14:30:07,077 [INFO] process_pcap — Processing single PCAP: /Users/boss/Desktop/Final/VS Final Project/Dataset of network traffic/IoT-23 Dataset/opt/Malware-Project/BigDataset/IoTScenarios/CTU-IoT-Malware-Capture-34-1/2018-12-21-15-50-14-192.168.1.195.irc.pcap
+2026-11-16 14:30:07,116 [INFO] iot_anomaly.data.label_mapper — Loaded 23145 labeled sessions from /Users/boss/Desktop/Final/VS Final Project/Dataset of network traffic/IoT-23 Dataset/opt/Malware-Project/BigDataset/IoTScenarios/CTU-IoT-Malware-Capture-34-1/bro/conn.log.labeled
+2026-11-16 14:30:07,116 [INFO] iot_anomaly.data.parser — Parsing PCAP: /Users/boss/Desktop/Final/VS Final Project/Dataset of network traffic/IoT-23 Dataset/opt/Malware-Project/BigDataset/IoTScenarios/CTU-IoT-Malware-Capture-34-1/2018-12-21-15-50-14-192.168.1.195.irc.pcap
+2026-11-16 14:30:09,595 [INFO] iot_anomaly.data.label_mapper — Label distribution before filtering:
+label_raw
+-   malicious   c&c    4055
+unknown                   6
+2026-11-16 14:30:09,598 [INFO] iot_anomaly.data.label_mapper — Binary label distribution:
+label
+1    4055
+2026-11-16 14:30:09,888 [INFO] process_pcap — Saved 4055 session rows to /private/tmp/claude-501/-Users-boss-projects-claude-experiments-iot-anomaly-detector/22e06c9d-0e30-4837-861c-208842c57d1b/scratchpad/ctu_features.csv
+2026-11-16 14:30:09,888 [INFO] process_pcap — Label distribution:
+label
+1    4055
+
+PASS — sessions extracted, features computed, Zeek labels joined.

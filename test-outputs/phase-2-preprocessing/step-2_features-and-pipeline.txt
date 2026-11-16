@@ -1,0 +1,13 @@
+Phase 2 — Feature Engineering & Preprocessing
+
+Feature-extraction correctness (synthetic session):
+  BUG-01 inter_arrival_* key prefix in both branches: PASS
+  BUG-07 single-packet defaults are 0.0: PASS
+  BUG-02 single flag_comb_ prefix: PASS
+  BUG-05 uppercase protocol fractions: PASS
+  features per session: 307; negative values: none
+
+Preprocessing pipeline (N-BaIoT subset, 181,592 rows):
+  engineered features: 118 (115 + 3 cross-window aggregates)
+  after RF selection + PCA(95%) + SMOTE: X (264088, 11, 1), labels [132044, 132044] (balanced)
+  PASS

@@ -1,0 +1,11 @@
+Phase 5 — Held-Out Test-Set Evaluation
+
+  accuracy   0.9986
+  precision  0.9978
+  recall     0.9993
+  f1         0.9985
+  auc_roc    0.9995
+
+Report (2024, full training): acc 0.9941, prec 0.9938, rec 0.9954,
+f1 0.9946, auc_roc 0.9997 — smoke-run results are consistent.
+PASS

@@ -1,0 +1,77 @@
+Phase 3 — Model Architecture
+
+Reconstruction length check (BUG-23 Cropping1D fix):
+  L= 8: reconstruction (None, 8, 1) — OK
+  L=11: reconstruction (None, 11, 1) — OK
+  L=13: reconstruction (None, 13, 1) — OK
+  L=15: reconstruction (None, 15, 1) — OK
+  L=23: reconstruction (None, 23, 1) — OK
+
+Autoencoder summary (report hyperparameters, L=11):
+Model: "autoencoder"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ encoder_input (InputLayer)  [(None, 11, 1)]           0         
+                                                                 
+ enc_conv1 (Conv1D)          (None, 11, 112)           784       
+                                                                 
+ enc_pool1 (MaxPooling1D)    (None, 6, 112)            0         
+                                                                 
+ enc_drop1 (Dropout)         (None, 6, 112)            0         
+                                                                 
+ enc_conv2 (Conv1D)          (None, 6, 56)             37688     
+                                                                 
+ bottleneck (MaxPooling1D)   (None, 3, 56)             0         
+                                                                 
+ dec_drop1 (Dropout)         (None, 3, 56)             0         
+                                                                 
+ dec_conv1 (Conv1D)          (None, 3, 56)             18872     
+                                                                 
+ dec_up1 (UpSampling1D)      (None, 6, 56)             0         
+                                                                 
+ dec_conv2 (Conv1D)          (None, 6, 112)            37744     
+                                                                 
+ dec_up2 (UpSampling1D)      (None, 12, 112)           0         
+                                                                 
+ dec_crop (Cropping1D)       (None, 11, 112)           0         
+                                                                 
+ reconstruction (Conv1D)     (None, 11, 1)             673       
+                                                                 
+=================================================================
+Total params: 95761 (374.07 KB)
+Trainable params: 95761 (374.07 KB)
+Non-trainable params: 0 (0.00 Byte)
+_________________________________________________________________
+
+Classifier summary:
+Model: "anomaly_classifier"
+__________________________________________________________________________________________________
+ Layer (type)                Output Shape                 Param #   Connected to                  
+==================================================================================================
+ clf_input (InputLayer)      [(None, 11, 1)]              0         []                            
+                                                                                                  
+ encoder (Functional)        (None, 3, 56)                38472     ['clf_input[0][0]']           
+                                                                                                  
+ clf_att_perm1 (Permute)     (None, 56, 3)                0         ['encoder[0][0]']             
+                                                                                                  
+ clf_att_dense (Dense)       (None, 56, 3)                12        ['clf_att_perm1[0][0]']       
+                                                                                                  
+ clf_att_vec (Permute)       (None, 3, 56)                0         ['clf_att_dense[0][0]']       
+                                                                                                  
+ clf_att_mul (Multiply)      (None, 3, 56)                0         ['encoder[0][0]',             
+                                                                     'clf_att_vec[0][0]']         
+                                                                                                  
+ clf_flatten (Flatten)       (None, 168)                  0         ['clf_att_mul[0][0]']         
+                                                                                                  
+ clf_dense (Dense)           (None, 43)                   7267      ['clf_flatten[0][0]']         
+                                                                                                  
+ clf_dropout (Dropout)       (None, 43)                   0         ['clf_dense[0][0]']           
+                                                                                                  
+ clf_output (Dense)          (None, 1)                    44        ['clf_dropout[0][0]']         
+                                                                                                  
+==================================================================================================
+Total params: 45795 (178.89 KB)
+Trainable params: 45795 (178.89 KB)
+Non-trainable params: 0 (0.00 Byte)
+__________________________________________________________________________________________________

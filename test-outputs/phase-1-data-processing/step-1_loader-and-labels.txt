@@ -1,0 +1,11 @@
+Phase 1 — Data Processing
+
+Step 1.2 — N-BaIoT CSV loader (subset: 1.benign, 1.mirai.ack, 1.gafgyt.scan)
+  rows x cols: (181592, 116)
+  label distribution: {1: 132044, 0: 49548}
+  feature count (excl. label): 115 (expected 115)
+  PASS
+
+Step 1.4 — Label mapper (conn.log.labeled)
+  directory guard (BUG-10): PASS — ValueError: Expected a file path but got a directory: /tmp
+  real IoT-23 conn.log.labeled parsed: 23145 labeled sessions — PASS
