@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> None:
         df = map_labels(raw_df, labeled_data)
 
     if df.empty:
-        logger.error("No sessions extracted — check your PCAP and label paths.")
+        logger.error("No sessions extracted — check the PCAP and label paths.")
         sys.exit(1)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)

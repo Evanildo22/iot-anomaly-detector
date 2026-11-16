@@ -1,6 +1,6 @@
 # IoT SAFEGUARD — Comprehensive Testing Guide
 
-> This guide walks you through **every phase** of the IoT SAFEGUARD project —
+> This guide covers **every phase** of the IoT SAFEGUARD project —
 > from hardware verification and environment setup, through individual phase
 > testing (data processing, preprocessing, model architecture, training,
 > evaluation, adversarial robustness, real-time inference), to a final
@@ -63,17 +63,17 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices())"
 
 The training pipeline uses two computationally intensive steps: Bayesian
 hyperparameter search (`BayesSearchCV`) and deep neural network training
-with TensorFlow. This phase verifies your hardware meets the minimum
+with TensorFlow. This phase verifies that the hardware meets the minimum
 requirements and that all accelerator drivers are correctly detected
-**before** you commit to a multi-hour training run.
+**before** committing to a multi-hour training run.
 
 > **This guide has been configured for: MacBook Pro 2023, Apple M2 Max**
 
 ### Step 0.1 — Hardware requirements
 
-Your machine against the project requirements:
+The test machine (MacBook Pro 2023, Apple M2 Max) against the project requirements:
 
-| Component | Minimum | Recommended | Your Machine | Status |
+| Component | Minimum | Recommended | Test Machine (MacBook Pro M2 Max) | Status |
 |---|---|---|---|---|
 | CPU | 4-core / 2.5 GHz | 8-core / 3.5 GHz | Apple M2 Max — 12 cores (8P + 4E) | ✓ Exceeds recommended |
 | RAM | 8 GB | 32 GB | 64 GB unified memory | ✓ Exceeds recommended |
@@ -141,13 +141,13 @@ python -c "import tensorflow as tf; print(tf.config.list_physical_devices())"
 ```
 
 If only `CPU:0` appears, re-install `tensorflow-metal` into the active
-virtual environment and ensure you are not using a Rosetta (x86) Python
-interpreter — always use the native arm64 Python build.
+virtual environment and confirm the interpreter is not a Rosetta (x86)
+Python — the native arm64 Python build is required.
 
 ### Step 0.3 — Python virtual environment
 
 ```bash
-git clone https://github.com/your-username/iot-anomaly-detector.git
+git clone https://github.com/Evanildo22/iot-anomaly-detector.git
 cd iot-anomaly-detector
 
 python3 -m venv .venv
@@ -196,7 +196,7 @@ else:
     print("\n⚠  Metal GPU not detected — training will run on CPU only")
     print("   To enable Metal acceleration:")
     print("   $ pip install tensorflow-metal==1.0.1  # must match tensorflow==2.13.0")
-    print("   Ensure you are using a native arm64 Python 3.10/3.11 (not Rosetta):")
+    print("   A native arm64 Python 3.10/3.11 is required (not Rosetta):")
     print("   $ python3 -c \"import platform; print(platform.machine())\"  # should print arm64")
 
 # Also verify key imports
@@ -206,7 +206,7 @@ print("\n✓  All required packages import successfully")
 EOF
 ```
 
-**Expected output (Metal active — your machine):**
+**Expected output (Metal active — as on the M2 Max test machine):**
 ```
 TensorFlow version : 2.13.0
 All devices        : ['CPU', 'GPU']
@@ -228,15 +228,15 @@ GPU devices        : 0
 ⚠  Metal GPU not detected — training will run on CPU only
    To enable Metal acceleration:
    $ pip install tensorflow-metal==1.0.1
-   Ensure you are using a native arm64 Python (not Rosetta):
+   A native arm64 Python is required (not Rosetta):
    $ python3 -c "import platform; print(platform.machine())"  # should print arm64
 
 ✓  All required packages import successfully
 ```
 
-> **CPU-only is fully supported.** If you choose not to install
-> `tensorflow-metal`, all phases will complete correctly — training will simply
-> take longer (see time estimates in Step 0.1).
+> **CPU-only is fully supported.** Without `tensorflow-metal`, all phases
+> still complete correctly — training simply takes longer (see time
+> estimates in Step 0.1).
 
 ### Step 0.5 — Verify the package version and entry points
 
@@ -257,7 +257,7 @@ usage: iot-train [-h] --dataset {nbaiot,ctu} ...
 
 ## Phase 1 — Data Processing Phase
 
-> **Saving test evidence:** For each step below, save your terminal output or screenshot to
+> **Saving test evidence:** For each step below, the terminal output or a screenshot is saved to
 > `test-outputs/phase-1-data-processing/`. Suggested naming convention:
 > `step-1-1_dataset-acquisition.png`, `step-1-2_nbaiot-loader.txt`, etc.
 > A folder exists for every phase (`phase-0-environment/` through `phase-9-integration/`).
@@ -736,7 +736,7 @@ source .venv/bin/activate
 tensorboard --logdir checkpoints/ --port 6006
 ```
 
-Then visit **http://localhost:6006** in your browser.
+TensorBoard is then available at **http://localhost:6006**.
 
 **What to look for in TensorBoard:**
 

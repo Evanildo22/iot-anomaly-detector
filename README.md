@@ -335,7 +335,7 @@ All hyperparameters are controlled through `TrainingConfig` or CLI flags:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/my-improvement`)
 3. Run the test suite (`pytest tests/ -v`)
-4. Format your code (`black src/ scripts/ && isort src/ scripts/`)
+4. Format the code (`black src/ scripts/ && isort src/ scripts/`)
 5. Open a pull request
 
 Please read [BUG_ANALYSIS.md](BUG_ANALYSIS.md) to understand the bugs fixed
@@ -351,7 +351,7 @@ MIT — see [LICENSE](LICENSE) for details.
 
 ## Citation
 
-If you use this code in your research, please cite:
+Research building on this code can cite it as:
 
 ```bibtex
 @misc{iot-anomaly-detector,
