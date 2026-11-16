@@ -98,9 +98,11 @@ def load_features_labels(args: argparse.Namespace) -> tuple[pd.DataFrame, pd.Ser
             raise ValueError("--features_csv is required for ctu dataset")
         df       = pd.read_csv(args.features_csv)
         labels   = df["label"]
-        # Drop non-numeric / identifier columns
+        # Drop non-numeric / identifier columns. 'protocol' is the raw string
+        # ("TCP"/"UDP"/"ICMP"); the numeric TCP/UDP/ICMP fraction columns
+        # already encode it, and a string column crashes the preprocessor.
         drop_cols = ["session_id", "src_ip", "dst_ip", "timestamp_session",
-                     "label", "label_raw"]
+                     "protocol", "label", "label_raw"]
         features = df.drop(columns=[c for c in drop_cols if c in df.columns])
 
     return features, labels
