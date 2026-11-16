@@ -1,0 +1,48 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build / packaging
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files (often large — store externally)
+# Anchored to repo root: must NOT match src/iot_anomaly/data/
+/data/
+*.pcap
+*.h5
+*.hdf5
+
+# CSV data files — exclude globally except inside test-outputs/
+*.csv
+!test-outputs/**/*.csv
+
+# Trained model artefacts
+# Anchored to repo root: must NOT match src/iot_anomaly/models/
+/models/
+*.keras
+*.pb
+saved_model/
+
+# Logs (project logs, not test evidence)
+logs/
+tensorboard_logs/
+*.log
+!test-outputs/**/*.log
+!test-outputs/**/*.txt
+
+# Test outputs — always committed (screenshots, terminal captures, reports)
+# test-outputs/ is tracked; add files freely inside any phase subfolder
+
+# OS
+.DS_Store
