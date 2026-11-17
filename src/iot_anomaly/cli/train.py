@@ -115,16 +115,13 @@ def main(argv: list[str] | None = None) -> None:
     features, labels = load_features_labels(args)
     logger.info("Loaded dataset: %d rows × %d features", *features.shape)
 
-    # ── Preprocess (feature selection + PCA + SMOTE) ──────────────────────────
+    # ── Preprocessor (fitted inside the trainer, on the training split only) ──
     preprocessor = DataPreprocessor(
         n_top_features=args.n_top_features,
         pca_variance=0.95,
         resample=True,
         random_state=args.seed,
     )
-    X_3d, y = preprocessor.fit_transform(features, labels)
-    logger.info("Preprocessed shape: %s  |  label distribution: %s",
-                X_3d.shape, np.bincount(y.astype(int)).tolist())
 
     # ── Build training config ─────────────────────────────────────────────────
     cfg = TrainingConfig(
@@ -142,7 +139,12 @@ def main(argv: list[str] | None = None) -> None:
 
     # ── Train ─────────────────────────────────────────────────────────────────
     trainer = Trainer(cfg)
-    trainer.fit(X_3d, y, pretrain=not args.no_pretrain)
+    # Split raw rows first, then fit selection / PCA / SMOTE on train only.
+    trainer.fit_from_features(features, labels, preprocessor,
+                              pretrain=not args.no_pretrain)
+    logger.info("Training tensor: %s  |  resampled label distribution: %s",
+                trainer._X_train.shape,
+                np.bincount(trainer._y_train.astype(int)).tolist())
 
     # ── Evaluate ──────────────────────────────────────────────────────────────
     results = trainer.evaluate()

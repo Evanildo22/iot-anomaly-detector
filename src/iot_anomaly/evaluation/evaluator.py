@@ -71,7 +71,9 @@ def plot_roc_curve(
     if save_path:
         plt.savefig(save_path, dpi=150)
         logger.info("ROC curve saved to %s", save_path)
-    plt.show()
+        plt.close()  # plt.show() would block a terminal run on a GUI backend
+    else:
+        plt.show()
 
 
 def plot_confusion_matrix(
@@ -93,7 +95,9 @@ def plot_confusion_matrix(
     if save_path:
         plt.savefig(save_path, dpi=150)
         logger.info("Confusion matrix saved to %s", save_path)
-    plt.show()
+        plt.close()  # plt.show() would block a terminal run on a GUI backend
+    else:
+        plt.show()
 
 
 def realtime_inference(

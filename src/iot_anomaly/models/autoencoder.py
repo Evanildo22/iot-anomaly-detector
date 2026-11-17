@@ -83,7 +83,7 @@ def build_autoencoder(
     x = Conv1D(filters, kernel_size, activation="relu",
                padding="same", name="dec_conv2")(x)
     x = UpSampling1D(size=2, name="dec_up2")(x)
-    # FIX BUG-23: the two same-padded pool/upsample stages emit
+    # FIX BUG-24: the two same-padded pool/upsample stages emit
     # 4*ceil(ceil(L/2)/2) time-steps, which exceeds L unless L % 4 == 0 —
     # crop the excess so reconstruction always matches the input length.
     target_len = input_shape[0]

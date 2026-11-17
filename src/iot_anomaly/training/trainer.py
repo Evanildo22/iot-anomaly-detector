@@ -1,7 +1,8 @@
 """
 Training orchestrator — two-phase training:
 
-  Phase 1 (optional): Unsupervised autoencoder pretraining on reconstruction.
+  Phase 1 (optional): Unsupervised autoencoder pretraining on reconstruction
+                      of benign training traffic only.
   Phase 2:            Supervised classifier fine-tuning with attention head.
 
 Fixed bugs vs original:
@@ -12,6 +13,12 @@ Fixed bugs vs original:
   BUG-20  find_optimal_threshold aligns array lengths before indexing.
   BUG-21  One canonical save path; ModelCheckpoint and manual save agree.
   BUG-22  Removed triple-quoted dead-code block.
+  BUG-25  Raw rows are split *before* any fitting: feature selection,
+          imputation, scaling, PCA and SMOTE are fitted on the training
+          split only (fit_from_features). Validation, test and real-time
+          sets are real rows with their natural class balance.
+  BUG-26  The autoencoder is pretrained on real benign training rows only,
+          never on attack traffic or SMOTE-synthesised rows.
   ARCH-03 All hyperparameters come from a config dict, not magic numbers.
   ARCH-04 Global seeds set for numpy, python, and tensorflow.
 """
@@ -22,10 +29,11 @@ import datetime
 import logging
 import os
 import random
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import train_test_split
@@ -37,6 +45,9 @@ from tensorflow.keras.callbacks import (
 
 from ..models.autoencoder import build_autoencoder
 from ..models.classifier import build_classifier
+
+if TYPE_CHECKING:
+    from ..data.preprocessor import DataPreprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +76,51 @@ class TrainingConfig:
     val_size: float = 0.15
     test_size: float = 0.15
     realtime_size: float = 0.05
+    # Label value of benign traffic (used to select autoencoder pretraining rows)
+    benign_label: int = 0
     # Misc
     random_state: int = 42
     save_dir: str = "checkpoints"
     log_dir: str = "logs"
+
+
+# ── Canonical split ────────────────────────────────────────────────────────────
+
+def split_indices(labels: np.ndarray, cfg: TrainingConfig) -> dict[str, np.ndarray]:
+    """
+    Stratified train / val / test / realtime split of row *indices*.
+
+    Splitting indices (not transformed arrays) lets callers split raw data
+    before anything is fitted on it (FIX BUG-25).
+    """
+    labels = np.asarray(labels)
+    classes = np.unique(labels)
+    if len(classes) < 2:
+        raise ValueError(
+            f"Training data contains a single class ({classes.tolist()}); a "
+            "binary detector needs both benign and malicious rows. For CTU "
+            "captures, use a PCAP that includes benign background traffic."
+        )
+    idx = np.arange(len(labels))
+
+    # Step 1: carve out realtime set (5%)
+    idx_main, idx_rt = train_test_split(
+        idx, test_size=cfg.realtime_size, stratify=labels,
+        random_state=cfg.random_state,
+    )
+    # Step 2: from remaining (95%), carve out test set (≈15.8% of 95% ≈ 15% total)
+    test_fraction_of_main = cfg.test_size / (1 - cfg.realtime_size)
+    idx_main2, idx_test = train_test_split(
+        idx_main, test_size=test_fraction_of_main, stratify=labels[idx_main],
+        random_state=cfg.random_state,
+    )
+    # Step 3: from remaining, carve out validation set (≈18.75% of 80% ≈ 15% total)
+    val_fraction_of_main2 = cfg.val_size / (1 - cfg.realtime_size - cfg.test_size)
+    idx_train, idx_val = train_test_split(
+        idx_main2, test_size=val_fraction_of_main2, stratify=labels[idx_main2],
+        random_state=cfg.random_state,
+    )
+    return {"train": idx_train, "val": idx_val, "test": idx_test, "realtime": idx_rt}
 
 
 # ── Optimal threshold finder ───────────────────────────────────────────────────
@@ -98,10 +150,10 @@ class Trainer:
     """
     Two-phase trainer for the CAE + Attention anomaly classifier.
 
-    Usage
+    Usage (recommended — leak-free end to end)
     -----
     >>> trainer = Trainer(config)
-    >>> trainer.fit(X_3d, y)
+    >>> trainer.fit_from_features(features_df, labels, DataPreprocessor())
     >>> results = trainer.evaluate()
     """
 
@@ -116,11 +168,58 @@ class Trainer:
         self.classifier:  Optional[tf.keras.Model] = None
         self.threshold:   float = 0.5
 
-        # Split arrays populated by fit()
+        # Split arrays populated by fit_*()
         self._X_train  = self._X_val = self._X_test = self._X_realtime = None
         self._y_train  = self._y_val = self._y_test = self._y_realtime = None
 
     # ── Public API ────────────────────────────────────────────────────────────
+
+    def fit_from_features(
+        self,
+        features: pd.DataFrame,
+        labels: pd.Series | np.ndarray,
+        preprocessor: "DataPreprocessor",
+        pretrain: bool = True,
+    ) -> "Trainer":
+        """
+        Leak-free pipeline from raw feature rows (FIX BUG-25 / BUG-26).
+
+        1. Split raw rows into train / val / test / realtime (stratified).
+        2. Fit feature selection, imputer, scaler, PCA and SMOTE on the
+           training rows only.
+        3. Transform val / test / realtime with the fitted pipeline
+           (no resampling — they keep their natural class balance).
+        4. Pretrain the autoencoder on real benign training rows only.
+        """
+        y_all = np.asarray(labels)
+        idx = split_indices(y_all, self.cfg)
+        logger.info(
+            "Raw split sizes — train: %d | val: %d | test: %d | realtime: %d",
+            *(len(idx[k]) for k in ("train", "val", "test", "realtime")),
+        )
+
+        f_train = features.iloc[idx["train"]]
+        y_train_raw = y_all[idx["train"]]
+
+        # Fitted on training rows only; resampling (if enabled) applies here only.
+        X_train, y_train = preprocessor.fit_transform(f_train, pd.Series(y_train_raw))
+
+        X_val = preprocessor.transform(features.iloc[idx["val"]])
+        X_test = preprocessor.transform(features.iloc[idx["test"]])
+        X_rt = preprocessor.transform(features.iloc[idx["realtime"]])
+
+        # Real (non-synthetic) benign training rows for autoencoder pretraining
+        X_train_real = preprocessor.transform(f_train)
+        X_pretrain = X_train_real[y_train_raw == self.cfg.benign_label]
+
+        return self.fit_presplit(
+            X_train, y_train,
+            X_val, y_all[idx["val"]],
+            X_test, y_all[idx["test"]],
+            X_rt, y_all[idx["realtime"]],
+            X_pretrain=X_pretrain,
+            pretrain=pretrain,
+        )
 
     def fit(
         self,
@@ -129,47 +228,45 @@ class Trainer:
         pretrain: bool = True,
     ) -> "Trainer":
         """
-        Perform canonical train/val/test/realtime split, then train models.
+        Split already-transformed arrays, then train.
 
-        FIX BUG-15: one canonical split; test set never touches training.
-        FIX BUG-16: training uses the (already resampled) X, y passed in.
+        Only leak-free if *X* was NOT produced by a preprocessor fitted on the
+        same rows and was NOT resampled — otherwise use fit_from_features().
+        Kept for arrays that need no fitted preprocessing.
         """
+        y = np.asarray(y)
+        idx = split_indices(y, self.cfg)
+        X_train, y_train = X[idx["train"]], y[idx["train"]]
+        return self.fit_presplit(
+            X_train, y_train,
+            X[idx["val"]], y[idx["val"]],
+            X[idx["test"]], y[idx["test"]],
+            X[idx["realtime"]], y[idx["realtime"]],
+            X_pretrain=X_train[y_train == self.cfg.benign_label],
+            pretrain=pretrain,
+        )
+
+    def fit_presplit(
+        self,
+        X_train: np.ndarray, y_train: np.ndarray,
+        X_val: np.ndarray, y_val: np.ndarray,
+        X_test: np.ndarray, y_test: np.ndarray,
+        X_realtime: np.ndarray, y_realtime: np.ndarray,
+        X_pretrain: Optional[np.ndarray] = None,
+        pretrain: bool = True,
+    ) -> "Trainer":
+        """Train on explicit, already-separated splits."""
         cfg = self.cfg
-        input_shape = X.shape[1:]
+        input_shape = X_train.shape[1:]
 
-        # ── Canonical split ────────────────────────────────────────────────
-        # Step 1: carve out realtime set (5%)
-        X_main, X_rt, y_main, y_rt = train_test_split(
-            X, y,
-            test_size=cfg.realtime_size,
-            stratify=y,
-            random_state=cfg.random_state,
-        )
-        # Step 2: from remaining (95%), carve out test set (≈15.8% of 95% ≈ 15% total)
-        test_fraction_of_main = cfg.test_size / (1 - cfg.realtime_size)
-        X_main2, X_test, y_main2, y_test = train_test_split(
-            X_main, y_main,
-            test_size=test_fraction_of_main,
-            stratify=y_main,
-            random_state=cfg.random_state,
-        )
-        # Step 3: from remaining, carve out validation set (≈17.6% of 80% ≈ 15% total)
-        val_fraction_of_main2 = cfg.val_size / (1 - cfg.realtime_size - cfg.test_size)
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_main2, y_main2,
-            test_size=val_fraction_of_main2,
-            stratify=y_main2,
-            random_state=cfg.random_state,
-        )
-
-        self._X_train, self._y_train  = X_train, y_train
-        self._X_val,   self._y_val    = X_val,   y_val
-        self._X_test,  self._y_test   = X_test,  y_test
-        self._X_realtime, self._y_realtime = X_rt, y_rt
+        self._X_train, self._y_train = X_train, y_train
+        self._X_val,   self._y_val   = X_val,   y_val
+        self._X_test,  self._y_test  = X_test,  y_test
+        self._X_realtime, self._y_realtime = X_realtime, y_realtime
 
         logger.info(
-            "Split sizes — train: %d | val: %d | test: %d | realtime: %d",
-            len(y_train), len(y_val), len(y_test), len(y_rt),
+            "Model split sizes — train: %d | val: %d | test: %d | realtime: %d",
+            len(y_train), len(y_val), len(y_test), len(y_realtime),
         )
 
         # ── Build models ───────────────────────────────────────────────────
@@ -190,13 +287,18 @@ class Trainer:
             learning_rate=cfg.learning_rate,
         )
 
-        # ── Phase 1: autoencoder pretraining ──────────────────────────────
+        # ── Phase 1: autoencoder pretraining on benign traffic only ───────
         if pretrain:
-            logger.info("Phase 1: Autoencoder pretraining …")
+            if X_pretrain is None or len(X_pretrain) == 0:
+                raise ValueError("No benign training rows available for pretraining.")
+            X_val_benign = X_val[y_val == cfg.benign_label]
+            logger.info(
+                "Phase 1: Autoencoder pretraining on %d benign rows …", len(X_pretrain)
+            )
             ae_ckpt_path = os.path.join(cfg.save_dir, "autoencoder_best.weights.h5")
             self.autoencoder.fit(
-                X_train, X_train,          # reconstruction target = input
-                validation_data=(X_val, X_val),
+                X_pretrain, X_pretrain,      # reconstruction target = input
+                validation_data=(X_val_benign, X_val_benign),
                 epochs=cfg.pretrain_epochs,
                 batch_size=cfg.batch_size,
                 callbacks=self._callbacks("ae", ae_ckpt_path),
@@ -222,6 +324,14 @@ class Trainer:
         self.classifier.load_weights(clf_ckpt_path)
         logger.info("Loaded best checkpoint: %s", clf_ckpt_path)
 
+        # Full-model export for use in other processes. Load it with
+        # tf.keras.models.load_model(path, compile=False): on Apple Silicon,
+        # TF 2.13 substitutes the legacy Adam optimizer, whose saved state
+        # cannot be restored. Inference does not need the optimizer.
+        model_path = os.path.join(cfg.save_dir, "classifier_best.keras")
+        self.classifier.save(model_path)
+        logger.info("Exported best classifier: %s (load with compile=False)", model_path)
+
         # ── Threshold fine-tuning on validation set ────────────────────────
         y_val_proba = self.classifier.predict(X_val).ravel()
         self.threshold, best_f1 = find_optimal_threshold(y_val, y_val_proba)
@@ -233,7 +343,7 @@ class Trainer:
         """Evaluate on the held-out test set."""
         from ..evaluation.evaluator import compute_metrics
         if self.classifier is None:
-            raise RuntimeError("Call fit() before evaluate().")
+            raise RuntimeError("Call fit_from_features() or fit() before evaluate().")
         y_proba = self.classifier.predict(self._X_test).ravel()
         y_pred  = (y_proba > self.threshold).astype(int)
         return compute_metrics(self._y_test, y_pred, y_proba)
