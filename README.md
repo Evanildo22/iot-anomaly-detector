@@ -321,17 +321,19 @@ natural class balance and no synthetic rows.
 
 **How to read these numbers.**
 
-- The 2026 figures come from a shortened schedule (2 pretraining + 3
-  fine-tuning epochs). Full-schedule training (30 + 50 epochs) is still to be
-  rerun.
+- The two columns are at the same general level, but the 2026 run is not a
+  direct reproduction of the 2024 one: it uses a shortened schedule
+  (2 pretraining + 3 fine-tuning epochs) and a different, leak-free
+  evaluation protocol. Full-schedule training (30 + 50 epochs) is still to
+  be rerun.
 - Because 92.1% of rows are malicious, flagging everything would already
   reach 92.1% accuracy. The false-positive rate (0.57% of benign traffic
   flagged) is the more telling figure for the benign class.
 - Rows are split at random, so test traffic comes from the same devices as
   the training traffic. Evaluation on held-out devices is planned.
 
-Full details, including a side-by-side run of the old (leaky) pipeline, are
-in [test-outputs/VALIDATION_2026-11-16.md](test-outputs/VALIDATION_2026-11-16.md).
+Full details, including exact confusion counts, are in
+[test-outputs/VALIDATION_2026-11-16.md](test-outputs/VALIDATION_2026-11-16.md).
 
 ---
 

@@ -27,6 +27,11 @@ build/
 *.csv
 !test-outputs/**/*.csv
 
+# Local training runs and CLI checkpoint output (large; results are copied
+# into test-outputs/ when published)
+/runs/
+/checkpoints/
+
 # Trained model artefacts
 # Anchored to repo root: must NOT match src/iot_anomaly/models/
 /models/

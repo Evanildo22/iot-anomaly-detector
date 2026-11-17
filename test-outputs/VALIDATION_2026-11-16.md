@@ -28,11 +28,18 @@ phase's evidence was regenerated with the corrected pipeline.
 Phases 2–5, 8 and 9 use the single-device subset (1.benign / 1.mirai.ack /
 1.gafgyt.scan, 181,592 rows → PCA 11 components) at smoke scale.
 
-## Old versus corrected pipeline on the full dataset
+## Old and corrected pipelines on the full dataset
 
 Both pipelines were run on all nine N-BaIoT devices (7,062,606 rows:
 555,932 benign, 6,506,674 malicious) with the report's hyperparameters,
 seed 42, and a shortened schedule of 2 pretraining + 3 fine-tuning epochs.
+
+**These two columns are not a controlled before/after comparison.** The
+two test sets have different class distributions (the old one is roughly
+balanced, the corrected one is 92.13% malicious), and the old one is
+mostly synthetic SMOTE rows. Accuracy, precision, recall and F1 depend on
+the class distribution, so their values cannot be compared across the two
+columns.
 
 | Metric | Old pipeline (leaky) | Corrected pipeline |
 |---|---|---|
@@ -47,13 +54,28 @@ Checks on the corrected run: the four splits are disjoint and cover every
 row; the test set's malicious share (0.9213) equals the dataset's; PCA kept
 11 components; the validation-tuned threshold is 0.1569.
 
-Corrected confusion counts on the test set: 975,198 true positives, 803
-missed attacks, 475 false alarms, 82,915 true negatives. That is a
-false-positive rate of 0.57% (99.43% of benign rows correctly passed).
+Corrected confusion counts on the test set, taken directly from
+`confusion_matrix(y_test, y_pred).ravel()`:
 
-**Interpretation.** The leakage did not inflate the scores on N-BaIoT: the
-corrected pipeline scores as high or higher, so the 2024 report's level of
-performance is not an artefact of leakage. Two caveats remain:
+| | Predicted benign | Predicted malicious |
+|---|---|---|
+| **Actually benign** (83,390) | 82,915 (true negatives) | 475 (false alarms) |
+| **Actually malicious** (976,001) | 803 (missed attacks) | 975,198 (true positives) |
+
+False-positive rate: 475 / 83,390 = 0.570% (99.43% of benign rows correctly
+passed). The counts were extracted by rebuilding the run's deterministic
+split and fitted preprocessing, loading its saved best-classifier weights
+and re-tuning the threshold on the validation set (0.15695); the reproduced
+predictions match all five of the run's metrics exactly.
+
+**Interpretation.** After removing the leakage, performance remained strong
+on a real, naturally distributed hold-out set. Because the old and
+corrected test sets have different class distributions, and the old set
+includes synthetic samples, the metric values should not be treated as a
+controlled before/after comparison; this experiment cannot show how much,
+if at all, the leakage inflated the old figures. The nearly identical
+AUC-ROC (which does not depend on the decision threshold) suggests that the
+model's ability to separate the classes stayed strong. Further caveats:
 
 - Because 92.1% of rows are malicious, a model that flags everything would
   reach 92.1% accuracy. The false-positive rate is the more telling figure
@@ -104,7 +126,9 @@ performance is not an artefact of leakage. Two caveats remain:
 
 ## Conclusion
 
-The pipeline is functional end to end on both dataset families, its
-evaluation is now leak-free, and on the full N-BaIoT dataset it matches or
-exceeds the 2024 report's figures. Phase 7 (adversarial, optional) is the
-only guide item not exercised.
+The pipeline is functional end to end on both dataset families and its
+evaluation is now leak-free. The corrected shortened run achieves
+performance at the same general level as the 2024 report, but it is not a
+direct reproduction, because the training schedule and evaluation protocol
+differ. Phase 7 (adversarial, optional) is the only guide item not
+exercised.

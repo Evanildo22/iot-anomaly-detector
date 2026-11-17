@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None) -> None:
     results = trainer.evaluate()
     print("\n── Test-set results ──────────────────────────────")
     for k, v in results.items():
-        print(f"  {k:<12}  {v:.4f}")
+        print(f"  {k:<12}  {v if isinstance(v, int) else f'{v:.4f}'}")
 
     # ── Plots ─────────────────────────────────────────────────────────────────
     os.makedirs(args.save_dir, exist_ok=True)

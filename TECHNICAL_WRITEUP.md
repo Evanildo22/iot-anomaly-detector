@@ -423,15 +423,18 @@ that the evaluation was not strictly held-out. The refactored system
 enforces a clean separation between training and evaluation, uses all
 feature families correctly, and corrects the class imbalance handling.
 
-These figures were checked in November 2026 by running both the leaky
-pipeline and the corrected, split-first pipeline on all nine N-BaIoT
-devices (7,062,606 rows) with a shortened 2 + 3 epoch schedule. The
-corrected pipeline reached accuracy 0.9988, precision 0.9995, recall
-0.9992, F1 0.9993 and AUC-ROC 0.9997 on 1,059,391 real held-out rows,
-with a false-positive rate of 0.57%; the leaky pipeline scored slightly
-lower. The leakage therefore did not inflate performance on this dataset,
-and the 2024 report's level of performance holds under a clean
-evaluation. Two limits remain: with 92.1% of rows malicious, accuracy
+In November 2026 the corrected, split-first pipeline was run on all nine
+N-BaIoT devices (7,062,606 rows) with a shortened 2 + 3 epoch schedule.
+On 1,059,391 real held-out rows with their natural 92.13% malicious share,
+it reached accuracy 0.9988, precision 0.9995, recall 0.9992, F1 0.9993 and
+AUC-ROC 0.9997, with a false-positive rate of 0.57%. Performance therefore
+remained strong once the leakage was removed. This is at the same general
+level as the 2024 report, but it is not a direct reproduction: the training
+schedule and evaluation protocol differ. The leaky pipeline was also rerun,
+but its test set was roughly balanced and mostly synthetic, so its scores
+cannot be compared metric-for-metric with the corrected ones, and the
+experiment does not show how much the leakage inflated the original
+figures. Two further limits remain: with 92.1% of rows malicious, accuracy
 alone is a weak measure, and a random row split keeps test traffic from
 the same devices as the training traffic, so generalisation to unseen
 devices is not yet measured.

@@ -34,19 +34,28 @@ def compute_metrics(
     y_pred: np.ndarray,
     y_pred_proba: Optional[np.ndarray] = None,
 ) -> dict[str, float]:
-    """Return a comprehensive metrics dictionary."""
+    """
+    Return a comprehensive metrics dictionary.
+
+    Confusion counts come directly from the predictions, and the
+    false-positive rate (share of benign rows flagged as malicious) is
+    reported because accuracy is weak on a 92%-malicious dataset.
+    """
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
     metrics = {
         "accuracy":  accuracy_score(y_true, y_pred),
         "precision": precision_score(y_true, y_pred, zero_division=0),
         "recall":    recall_score(y_true, y_pred, zero_division=0),
         "f1":        f1_score(y_true, y_pred, zero_division=0),
+        "fpr":       fp / (fp + tn) if (fp + tn) else 0.0,
     }
     if y_pred_proba is not None:
         metrics["auc_roc"] = roc_auc_score(y_true, y_pred_proba)
+    metrics.update({"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)})
 
     logger.info("Evaluation results:")
     for k, v in metrics.items():
-        logger.info("  %-12s %.4f", k, v)
+        logger.info("  %-12s %s", k, v if isinstance(v, int) else f"{v:.4f}")
     logger.info("\n%s", classification_report(y_true, y_pred,
                 target_names=["Benign", "Malicious"]))
     return metrics

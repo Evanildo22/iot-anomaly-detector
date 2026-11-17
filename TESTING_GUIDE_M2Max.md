@@ -778,8 +778,9 @@ schedule, produced:
   f1           0.9993
   auc_roc      0.9997
 ```
-A full 30 + 50 epoch run should land at or near these values; it has not
-yet been rerun with the corrected pipeline.
+These are reference values from a shortened run, not expected output for
+the full 30 + 50 epoch schedule, which has not yet been rerun with the
+corrected pipeline.
 
 **Verify saved artefacts:**
 ```bash
