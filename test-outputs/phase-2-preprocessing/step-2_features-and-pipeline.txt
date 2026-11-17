@@ -7,7 +7,11 @@ Feature-extraction correctness (synthetic session):
   BUG-05 uppercase protocol fractions: PASS
   features per session: 307; negative values: none
 
-Preprocessing pipeline (N-BaIoT subset, 181,592 rows):
+Leak-free preprocessing (N-BaIoT subset, 181,592 rows; BUG-25 fix):
   engineered features: 118 (115 + 3 cross-window aggregates)
-  after RF selection + PCA(95%) + SMOTE: X (264088, 11, 1), labels [132044, 132044] (balanced)
+  1. raw rows split first (stratified 65/15/15/5): train 118034, val 27239, test 27239, realtime 9080
+     splits disjoint and cover all rows: True
+  2. RF selection + PCA(95%) + SMOTE fitted on TRAIN rows only: X (171656, 11, 1), labels [85828, 85828] (balanced)
+  3. test rows transformed with the fitted pipeline, not resampled: X (27239, 11, 1), labels [7432, 19807]
+     malicious share — dataset 0.7271, test set 0.7272 (natural balance kept)
   PASS

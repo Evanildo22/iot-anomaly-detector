@@ -1,6 +1,6 @@
 Phase 3 — Model Architecture
 
-Reconstruction length check (BUG-23 Cropping1D fix):
+Reconstruction length check (BUG-24 Cropping1D fix):
   L= 8: reconstruction (None, 8, 1) — OK
   L=11: reconstruction (None, 11, 1) — OK
   L=13: reconstruction (None, 13, 1) — OK

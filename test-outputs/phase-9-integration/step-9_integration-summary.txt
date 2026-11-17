@@ -1,9 +1,11 @@
 Phase 9 — Integration
 
-Single run exercised: N-BaIoT load -> feature engineering -> RF selection
--> PCA -> SMOTE -> canonical 65/15/15/5 split -> AE pretraining ->
-classifier fine-tuning -> checkpoint reload -> threshold tuning ->
+Single run exercised: N-BaIoT load -> feature engineering ->
+stratified 65/15/15/5 split of raw rows -> RF selection, PCA and SMOTE
+fitted on training rows -> held-out rows transformed (not resampled) ->
+AE pretraining on benign rows -> classifier fine-tuning -> checkpoint
+reload and full-model export -> threshold tuning on validation ->
 test evaluation -> real-time inference. No phase required manual
 intervention. See VALIDATION_2026-11-16.md for the full summary
-and the four fixes applied during this validation.
+and every fix applied during validation.
 PASS

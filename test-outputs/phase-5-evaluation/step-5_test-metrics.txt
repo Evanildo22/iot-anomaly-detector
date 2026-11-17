@@ -1,11 +1,14 @@
-Phase 5 — Held-Out Test-Set Evaluation
+Phase 5 — Held-Out Test-Set Evaluation (leak-free pipeline)
 
-  accuracy   0.9986
-  precision  0.9978
-  recall     0.9993
-  f1         0.9985
-  auc_roc    0.9995
+test set: 27239 real rows, class counts [7432, 19807] (natural balance, no SMOTE rows)
 
-Report (2024, full training): acc 0.9941, prec 0.9938, rec 0.9954,
-f1 0.9946, auc_roc 0.9997 — smoke-run results are consistent.
+  accuracy   0.9988
+  precision  0.9989
+  recall     0.9995
+  f1         0.9992
+  auc_roc    0.9996
+
+Single-device subset at smoke scale. The full nine-device comparison
+between the old (leaky) and corrected pipelines is recorded in
+VALIDATION_2026-11-16.md.
 PASS

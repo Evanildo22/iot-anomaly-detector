@@ -265,13 +265,22 @@ data leakage that renders performance metrics untrustworthy. The
 near-perfect reported metrics cannot be fully credited to
 generalisation ability when test contamination of this kind is present.
 
-The refactored system performs a single canonical split before any
-model is built or fitted, using stratified sampling to ensure label
-balance in all subsets. The split is performed in three stages —
-first removing the real-time evaluation set (5% of the total), then
-the test set (15%), then the validation set (15%), leaving 65% for
-training. No array from the held-out subsets is accessed during
-training, preprocessing fitting, or threshold tuning.
+The refactored system performs a single canonical split of the **raw**
+rows before anything is fitted, using stratified sampling to keep the
+natural class balance in every subset. The split is performed in three
+stages — first removing the real-time evaluation set (5% of the total),
+then the test set (15%), then the validation set (15%), leaving 65% for
+training. Feature selection, imputation, scaling, PCA and SMOTE are
+fitted on the training rows only; the validation, test and real-time
+rows are passed through the fitted pipeline with `transform`, are never
+resampled, and are not used for anything except validation, threshold
+tuning (validation set) and final evaluation.
+
+This guarantee was only partly true in the April 2026 refactor: model
+training was isolated from the test set, but preprocessing and SMOTE
+were still fitted on the whole dataset before the split. That residual
+leakage (BUG-25) was found and fixed in November 2026, together with
+pretraining the autoencoder on benign rows only (BUG-26).
 
 ### 3.4 SMOTE Resampling Was Computed But Never Used
 
@@ -292,7 +301,8 @@ suppressing precision.
 The refactored `DataPreprocessor.fit_transform` method returns the
 resampled arrays directly, making it impossible to accidentally bypass
 the resampling step, since the same arrays are immediately used for
-training.
+training. Resampling is applied to the training split only; evaluation
+sets keep their real class balance and contain no synthetic rows.
 
 ### 3.5 The imblearn Pipeline Silently Replaced the sklearn Pipeline
 
@@ -367,8 +377,10 @@ handles PCAP reading and session assembly with idle-timeout flushing;
 correct key naming and defaults; `label_mapper.py` parses label files
 and maps them to DataFrames with case-insensitive matching;
 `preprocessor.py` provides a stateful `DataPreprocessor` class
-that wraps feature selection, PCA, and SMOTE in a single object
-whose `fit_transform` method returns the resampled arrays directly.
+that wraps feature selection, PCA, and SMOTE in a single object:
+`fit_transform` is fitted on training rows and returns the resampled
+arrays, and `transform` applies the same fitted pipeline to held-out
+rows without resampling.
 
 The `models` subpackage separates the encoder, autoencoder, and
 classifier into distinct constructors. `build_autoencoder` returns
@@ -378,10 +390,12 @@ encoder model and builds the attention head on top of it, ensuring
 that attention is always applied to the bottleneck embedding.
 
 The `training` subpackage encapsulates the two-phase training loop in
-a `Trainer` class. A single call to `Trainer.fit(X, y)` performs the
-canonical stratified split, fits both the autoencoder and the
-classifier, loads the best validation checkpoint, and tunes the
-decision threshold on the validation set. All hyperparameters are
+a `Trainer` class. A single call to
+`Trainer.fit_from_features(features, labels, preprocessor)` performs
+the canonical stratified split on the raw rows, fits the preprocessor
+on the training rows only, pretrains the autoencoder on benign training
+rows, fine-tunes the classifier, loads the best validation checkpoint,
+and tunes the decision threshold on the validation set. All hyperparameters are
 provided through a `TrainingConfig` dataclass, which can be
 instantiated programmatically or loaded from the `configs/default.yaml`
 configuration file. Global random seeds for Python, NumPy, and
@@ -408,10 +422,19 @@ second reason: the test data leakage described in Section 3.3 means
 that the evaluation was not strictly held-out. The refactored system
 enforces a clean separation between training and evaluation, uses all
 feature families correctly, and corrects the class imbalance handling.
-Under these conditions the system achieves AUC-ROC of 0.9997, F1 of
-0.9946, precision of 0.9938, and recall of 0.9954 on the N-BaIoT
-dataset — results that are scientifically defensible rather than
-inflated by implementation artefacts.
+
+These figures were checked in November 2026 by running both the leaky
+pipeline and the corrected, split-first pipeline on all nine N-BaIoT
+devices (7,062,606 rows) with a shortened 2 + 3 epoch schedule. The
+corrected pipeline reached accuracy 0.9988, precision 0.9995, recall
+0.9992, F1 0.9993 and AUC-ROC 0.9997 on 1,059,391 real held-out rows,
+with a false-positive rate of 0.57%; the leaky pipeline scored slightly
+lower. The leakage therefore did not inflate performance on this dataset,
+and the 2024 report's level of performance holds under a clean
+evaluation. Two limits remain: with 92.1% of rows malicious, accuracy
+alone is a weak measure, and a random row split keeps test traffic from
+the same devices as the training traffic, so generalisation to unseen
+devices is not yet measured.
 
 On the model side, the architectural separation of the encoder from
 the full autoencoder is the most consequential change. In the original
@@ -449,8 +472,8 @@ rigorous separation of training and evaluation data from the earliest
 stages of development.
 
 The refactored system, with its modular package structure, stateful
-preprocessor, correct two-phase training loop, and suite of smoke
-tests, provides a foundation from which the project's intended
+preprocessor, leak-free two-phase training loop, and end-to-end
+validation record (`test-outputs/`), provides a foundation from which the project's intended
 contributions — real-time IoT anomaly detection, incremental learning,
 and adversarial robustness testing — can be pursued with confidence
 that the underlying implementation correctly realises the stated
@@ -477,6 +500,9 @@ design.
 | Attention target (BUG-13) | Applied to full autoencoder reconstruction | Applied to encoder bottleneck |
 | Autoencoder loss (BUG-14) | `binary_crossentropy` on continuous data | `mse` with linear decoder activation |
 | Data leakage (BUG-15) | Test set included in `X_train_full` | Single canonical stratified split |
+| Reconstruction length (BUG-24) | Decoder output longer than input when PCA length % 4 ≠ 0 | `Cropping1D` trims to input length |
+| Preprocessing leakage (BUG-25) | Selection, PCA and SMOTE fitted on all rows before the split | Raw rows split first; fitted on training rows only |
+| Pretraining data (BUG-26) | Autoencoder pretrained on attack and synthetic rows | Pretrained on real benign training rows only |
 | SMOTE unused (BUG-16) | Resampled arrays discarded | `DataPreprocessor` returns resampled data |
 | Pipeline collision (BUG-17) | `imblearn.Pipeline` overwrote `sklearn.Pipeline` | Explicit `ImbPipeline` alias |
 | ART import shadowed (BUG-18) | Local class hid ART `KerasClassifier` | Renamed to `KerasAnomalyClassifier` |

@@ -373,6 +373,10 @@ The script performs three independent dataset splits:
 The final model is trained on `X_train_full` which contains held-out test data, and then
 evaluated on `X_test`.  This is a **data leakage** bug.
 
+> **Update (2026-11-17):** the April 2026 refactor fixed this only partially. Model
+> training no longer sees the test set, but feature selection, scaling, PCA and SMOTE
+> were still fitted on the full dataset before the split. See [BUG-25](#bug-25).
+
 ---
 
 ### BUG-16 🔴 SMOTE resampling result is never used
@@ -545,6 +549,64 @@ and non-portable.  Any function can silently break without detection.
 
 ---
 
+## 3b. Findings from the November 2026 Validation
+
+These defects were in the refactored package itself and were found when the
+validation guide was run end to end for the first time
+(`test-outputs/VALIDATION_2026-11-16.md`).
+
+### BUG-24 🔴 Autoencoder output length differs from input length
+
+**File:** `models/autoencoder.py`
+
+The encoder has two `MaxPooling1D(padding="same")` stages and the decoder two
+`UpSampling1D(2)` stages, so the reconstruction has `4*ceil(ceil(L/2)/2)` time-steps.
+That exceeds the input length `L` whenever `L % 4 != 0`. PCA chooses `L`
+(11 on the N-BaIoT subset), so training crashed on the MSE loss
+(`Dimensions must be equal, but are 12 and 11`).
+
+**Fix:** a `Cropping1D` layer, sized from the actual tensor shape, trims the excess.
+
+---
+
+<a id="bug-25"></a>
+### BUG-25 🔴 Preprocessing and SMOTE fitted before the train/test split
+
+**File:** `cli/train.py`, `training/trainer.py`
+
+The training entry point called `DataPreprocessor.fit_transform` on the **whole**
+dataset and only then let `Trainer.fit` split the result. As a consequence:
+
+1. Correlation pruning and Random-Forest feature selection saw the test labels.
+2. The imputer, scaler and PCA were fitted on test rows.
+3. SMOTE and random under-sampling ran on all rows, so the "held-out" test set
+   contained synthetic rows interpolated from training neighbours, and its class
+   balance was artificial (on the single-device subset, 12,375 of the 19,807
+   benign test rows were synthetic).
+
+The README nonetheless stated that the test split was "held out before any
+preprocessing or resampling is applied".
+
+**Fix:** `Trainer.fit_from_features` splits the raw rows first (stratified
+65/15/15/5), fits selection, imputation, scaling, PCA and resampling on the training
+rows only, and applies the fitted pipeline with `transform` to the validation, test
+and real-time rows. Those keep their natural class balance and contain no synthetic
+rows.
+
+---
+
+### BUG-26 🟠 Autoencoder pretrained on attack and synthetic traffic
+
+**File:** `training/trainer.py`
+
+Phase 1 is meant to learn what *normal* traffic looks like, but the autoencoder was
+pretrained on every training row, including malicious and SMOTE-synthesised rows.
+
+**Fix:** pretraining uses real benign training rows only, and its validation loss
+is measured on benign validation rows.
+
+---
+
 ## 4. Summary Table
 
 | ID | Severity | Location | Description |
@@ -572,6 +634,9 @@ and non-portable.  Any function can silently break without detection.
 | BUG-21 | 🟡 Minor | `training/trainer.py` | Three different model file names, loads wrong checkpoint |
 | BUG-22 | 🟡 Minor | `training/trainer.py` | Dead code in triple-quoted string |
 | BUG-23 | 🟡 Minor | all | 10+ unused imports |
+| BUG-24 | 🔴 Critical | `models/autoencoder.py` | Reconstruction longer than input when PCA length % 4 ≠ 0 |
+| BUG-25 | 🔴 Critical | `cli/train.py`, `training/trainer.py` | Selection, PCA and SMOTE fitted before the split — test set leaked |
+| BUG-26 | 🟠 Major | `training/trainer.py` | Autoencoder pretrained on attack and synthetic rows, not benign only |
 | ARCH-01 | 🔵 Arch | all | No unified dataset abstraction |
 | ARCH-02 | 🔵 Arch | all | Feature schema hard-coded and fragile |
 | ARCH-03 | 🔵 Arch | all | Hyperparameters as magic numbers |

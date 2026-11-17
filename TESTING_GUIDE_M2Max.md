@@ -666,11 +666,10 @@ attack["label"] = 1
 df = pd.concat([benign, attack]).sample(frac=1, random_state=42)
 
 from src.iot_anomaly.data.preprocessor import DataPreprocessor, engineer_nbaiot_features
-features = engineer_nbaiot_features(df.drop(columns=["label"]))
+features = engineer_nbaiot_features(df.drop(columns=["label"])).reset_index(drop=True)
+labels   = df["label"].reset_index(drop=True)
 prep     = DataPreprocessor(n_top_features=10, pca_variance=0.90,
                              resample=True, random_state=42)
-X_3d, y  = prep.fit_transform(features, df["label"])
-print(f"Input: X={X_3d.shape}, y counts={np.bincount(y.astype(int)).tolist()}")
 
 from src.iot_anomaly.training.trainer import Trainer, TrainingConfig
 cfg = TrainingConfig(
@@ -680,14 +679,18 @@ cfg = TrainingConfig(
     save_dir="checkpoints/quicktest"
 )
 trainer = Trainer(cfg)
-trainer.fit(X_3d, y, pretrain=True)
+# Splits the raw rows first; selection, PCA and SMOTE are fitted on train only
+trainer.fit_from_features(features, labels, prep, pretrain=True)
+print(f"Train: X={trainer._X_train.shape}, "
+      f"y counts={np.bincount(trainer._y_train.astype(int)).tolist()} (resampled)")
+print(f"Test:  y counts={np.bincount(trainer._y_test.astype(int)).tolist()} (real rows)")
 
 # Verify checkpoints were saved
 import os
 ckpt_dir = "checkpoints/quicktest"
-assert os.path.isfile(f"{ckpt_dir}/autoencoder_best.keras"), \
+assert os.path.isfile(f"{ckpt_dir}/autoencoder_best.weights.h5"), \
     "Autoencoder checkpoint not saved"
-assert os.path.isfile(f"{ckpt_dir}/classifier_best.keras"), \
+assert os.path.isfile(f"{ckpt_dir}/classifier_best.weights.h5"), \
     "Classifier checkpoint not saved"
 print(f"✓  Checkpoints saved in {ckpt_dir}/")
 
@@ -758,26 +761,32 @@ python scripts/train.py \
     --save_dir     checkpoints/nbaiot_full \
     --n_top_features 15 \
     --pretrain_epochs 30 \
-    --finetune_epochs 50 \
+    --epochs         50 \
     --batch          256 \
     --seed           42
 ```
 
-**Expected final output (matching published results):**
+**Reference results.** The 2024 report published accuracy 0.9941,
+precision 0.9938, recall 0.9954, F1 0.9946 and AUC-ROC 0.9997. The 2026
+leak-free pipeline, run on the same data with a shortened 2 + 3 epoch
+schedule, produced:
 ```
 ── Test-set results ──────────────────────────────
-  accuracy     0.9941
-  precision    0.9938
-  recall       0.9954
-  f1           0.9946
+  accuracy     0.9988
+  precision    0.9995
+  recall       0.9992
+  f1           0.9993
   auc_roc      0.9997
 ```
+A full 30 + 50 epoch run should land at or near these values; it has not
+yet been rerun with the corrected pipeline.
 
 **Verify saved artefacts:**
 ```bash
 ls -lh checkpoints/nbaiot_full/
-# autoencoder_best.keras
-# classifier_best.keras
+# autoencoder_best.weights.h5
+# classifier_best.weights.h5
+# classifier_best.keras        (full model export; load with load_model(path, compile=False))
 # roc_curve.png
 # confusion_matrix.png
 ```
@@ -918,7 +927,7 @@ python scripts/train.py \
     --save_dir      checkpoints/ctu \
     --n_top_features 15 \
     --pretrain_epochs 15 \
-    --finetune_epochs 30 \
+    --epochs         30 \
     --batch          64
 ```
 
@@ -952,8 +961,10 @@ from art.attacks.evasion import FastGradientMethod
 from art.estimators.classification import KerasClassifier as ARTKerasClassifier
 from src.iot_anomaly.evaluation.evaluator import compute_metrics
 
-# Load trained model
-clf_model = tf.keras.models.load_model("checkpoints/quicktest/classifier_best.keras")
+# Load trained model (compile=False skips the unrestorable legacy-Adam state;
+# recompile with a loss because ART needs it to compute attack gradients)
+clf_model = tf.keras.models.load_model("checkpoints/quicktest/classifier_best.keras", compile=False)
+clf_model.compile(loss="binary_crossentropy")
 
 # Wrap for ART — binary classification (2 classes internally)
 art_clf = ARTKerasClassifier(
@@ -1027,7 +1038,7 @@ import numpy as np, time
 import tensorflow as tf
 from src.iot_anomaly.evaluation.evaluator import realtime_inference
 
-model = tf.keras.models.load_model("checkpoints/quicktest/classifier_best.keras")
+model = tf.keras.models.load_model("checkpoints/quicktest/classifier_best.keras", compile=False)
 n_features = model.input_shape[1]
 
 # Simulate 100 incoming network sessions
@@ -1099,14 +1110,24 @@ raw_features = df.drop(columns=["label"])
 features     = engineer_nbaiot_features(raw_features)
 print(f"    Features: {raw_features.shape[1]} → {features.shape[1]}")
 
-# ── Step 3: Preprocessing ─────────────────────────────────────────────
-print("\n[3/9] Preprocessing (imputation, scaling, PCA, SMOTE) ...")
+# ── Step 3: Leak-free split + preprocessing ───────────────────────────
+print("\n[3/9] Split raw rows, then fit imputation/scaling/PCA/SMOTE on train only ...")
+from src.iot_anomaly.training.trainer import Trainer, TrainingConfig, split_indices
+labels = df["label"]
+cfg = TrainingConfig(filters=32, kernel_size=3, dense_units=16,
+                     dropout_rate=0.2, learning_rate=1e-3,
+                     pretrain_epochs=5, finetune_epochs=8, batch_size=64,
+                     save_dir="checkpoints/integration_test")
+idx = split_indices(labels.values, cfg)
 prep = DataPreprocessor(n_top_features=10, pca_variance=0.90,
                         resample=True, random_state=42)
-X_3d, y = prep.fit_transform(features, df["label"])
-print(f"    Output tensor: {X_3d.shape}, resampled labels: {np.bincount(y.astype(int)).tolist()}")
+X_3d, y = prep.fit_transform(features.iloc[idx["train"]], labels.iloc[idx["train"]])
+X_test_3d = prep.transform(features.iloc[idx["test"]])
+print(f"    Train tensor: {X_3d.shape}, resampled labels: {np.bincount(y.astype(int)).tolist()}")
+print(f"    Test tensor:  {X_test_3d.shape} (real rows, not resampled)")
 assert X_3d.ndim == 3, "DataPreprocessor must return 3-D tensor"
 assert not np.isnan(X_3d).any(), "NaNs in preprocessed data"
+assert set(idx["train"]).isdisjoint(idx["test"]), "Train and test rows overlap"
 
 # ── Step 4: Model construction ────────────────────────────────────────
 print("\n[4/9] Building autoencoder + attention classifier ...")
@@ -1122,14 +1143,13 @@ print(f"    Classifier params: {clf.count_params():,}")
 
 # ── Step 5: Two-phase training ────────────────────────────────────────
 print("\n[5/9] Two-phase training ...")
-from src.iot_anomaly.training.trainer import Trainer, TrainingConfig
-cfg = TrainingConfig(filters=32, kernel_size=3, dense_units=16,
-                     dropout_rate=0.2, learning_rate=1e-3,
-                     pretrain_epochs=5, finetune_epochs=8, batch_size=64,
-                     save_dir="checkpoints/integration_test")
 trainer = Trainer(cfg)
 t_start = time.perf_counter()
-trainer.fit(X_3d, y, pretrain=True)
+# Re-runs the same split and fits a fresh preprocessor on the training rows only
+trainer.fit_from_features(features.reset_index(drop=True), labels.reset_index(drop=True),
+                          DataPreprocessor(n_top_features=10, pca_variance=0.90,
+                                           resample=True, random_state=42),
+                          pretrain=True)
 t_train = time.perf_counter() - t_start
 print(f"    Training completed in {t_train:.1f}s")
 print(f"    Checkpoints: {os.listdir('checkpoints/integration_test')}")
@@ -1147,15 +1167,16 @@ try:
     from art.attacks.evasion import FastGradientMethod
     from art.estimators.classification import KerasClassifier as ARTKerasClassifier
     clf_model = tf.keras.models.load_model(
-        "checkpoints/integration_test/classifier_best.keras")
+        "checkpoints/integration_test/classifier_best.keras", compile=False)
+    clf_model.compile(loss="binary_crossentropy")   # ART needs a loss for gradients
     art_clf = ARTKerasClassifier(model=clf_model, nb_classes=2,
                                   clip_values=(0.0, 1.0))
-    X_test_art = X_3d[:50].astype("float32")
-    y_test_art = y[:50]
+    X_test_art = trainer._X_test[:50].astype("float32")   # held-out rows
+    y_test_art = trainer._y_test[:50]
     fgsm      = FastGradientMethod(estimator=art_clf, eps=0.05)
     X_adv     = fgsm.generate(x=X_test_art)
-    clean_acc  = (clf_model.predict(X_test_art, verbose=0).flatten() >= 0.5 == y_test_art).mean()
-    adv_acc    = (clf_model.predict(X_adv,      verbose=0).flatten() >= 0.5 == y_test_art).mean()
+    clean_acc  = ((clf_model.predict(X_test_art, verbose=0).flatten() >= 0.5) == y_test_art).mean()
+    adv_acc    = ((clf_model.predict(X_adv,      verbose=0).flatten() >= 0.5) == y_test_art).mean()
     print(f"    Clean accuracy: {clean_acc:.4f} | Adversarial accuracy: {adv_acc:.4f}")
     print(f"    Accuracy drop: {clean_acc - adv_acc:.4f}")
 except Exception as e:
@@ -1165,7 +1186,7 @@ except Exception as e:
 print("\n[8/9] Real-time inference ...")
 from src.iot_anomaly.evaluation.evaluator import realtime_inference
 clf_model = tf.keras.models.load_model(
-    "checkpoints/integration_test/classifier_best.keras")
+    "checkpoints/integration_test/classifier_best.keras", compile=False)
 n_feat    = clf_model.input_shape[1]
 X_stream  = np.random.randn(30, n_feat, 1).astype("float32")
 realtime_inference(clf_model, X_stream, threshold=trainer.threshold, batch_size=10)
@@ -1179,7 +1200,7 @@ checks = [
     ("AUC-ROC > 0.70",               results.get("auc_roc", 0) > 0.70),
     ("Recall > 0.50 (no missed attacks)", results.get("recall", 0) > 0.50),
     ("Autoencoder checkpoint saved",
-        os.path.isfile("checkpoints/integration_test/autoencoder_best.keras")),
+        os.path.isfile("checkpoints/integration_test/autoencoder_best.weights.h5")),
     ("Classifier checkpoint saved",
         os.path.isfile("checkpoints/integration_test/classifier_best.keras")),
     ("No NaNs in training data",        not np.isnan(X_3d).any()),
@@ -1283,7 +1304,8 @@ PHASE 3 — Model Architecture
 
 PHASE 4 — Training
 [ ] Quick run completes (< 3 min) with no exceptions
-[ ] Checkpoints saved (autoencoder_best.keras, classifier_best.keras)
+[ ] Checkpoints saved (autoencoder_best.weights.h5, classifier_best.weights.h5, classifier_best.keras)
+[ ] Raw rows split before preprocessing; test set contains real rows only
 [ ] Optimal threshold found in (0, 1)
 [ ] TensorBoard shows decreasing loss curves
 [ ] Full N-BaIoT run achieves F1 > 0.994

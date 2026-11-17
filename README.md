@@ -89,8 +89,9 @@ and other IoT malware families.
 **Phase 1 — Unsupervised Pretraining**
 
 The full autoencoder is trained to reconstruct normalised input features
-using mean-squared-error loss. This forces the encoder to learn a compact,
-noise-robust representation of normal IoT traffic without any labels.
+using mean-squared-error loss, on **real benign training rows only** (no
+attack traffic, no SMOTE-synthesised rows). This forces the encoder to learn
+a compact, noise-robust representation of normal IoT traffic.
 
 **Phase 2 — Supervised Fine-tuning**
 
@@ -117,21 +118,28 @@ Raw Data Sources
       └─────────────────┬─────────────────────┘
                         │
                         ▼
-              DataPreprocessor.fit_transform()
-                - Feature selection via RF importance
-                - Correlation pruning (threshold 0.80)
-                - Median imputation → StandardScaler → PCA (95% var.)
-                - SMOTE oversampling + random under-sampling
+       Trainer.fit_from_features()
+         1. Stratified split of RAW rows, before any fitting:
+            train 65% · val 15% · test 15% · real-time 5%
+                        │
+                        ▼
+         2. DataPreprocessor.fit_transform()  ← TRAIN rows only
+              - Correlation pruning (threshold 0.80)
+              - Feature selection via RF importance
+              - Median imputation → StandardScaler → PCA (95% var.)
+              - SMOTE oversampling + random under-sampling
+            DataPreprocessor.transform()      ← val / test / real-time
+              (same fitted pipeline, no resampling: real rows,
+               natural class balance)
                         │
                         ▼
               X_3d  (n_samples, n_pca_components, 1)
                         │
-              ┌─────────┴──────────┐
-              │    Trainer.fit()   │
-              │  Phase 1: AE MSE   │
-              │  Phase 2: Clf BCE  │
-              │  Threshold tuning  │
-              └─────────┬──────────┘
+              ┌─────────┴──────────────────────┐
+              │ Phase 1: AE MSE (benign only)  │
+              │ Phase 2: Clf BCE               │
+              │ Threshold tuning (val)         │
+              └─────────┬──────────────────────┘
                         │
               ┌─────────┴──────────┐
               │ evaluate() / plot()│
@@ -254,24 +262,25 @@ from iot_anomaly.evaluation.evaluator import plot_roc_curve
 parser = PcapParser(session_timeout=120.0)
 df = parser.parse_file_with_labels("capture.pcap", "bro/conn.log.labeled")
 
-# 2. Preprocess
+# 2. Separate features and labels (drop identifiers and the raw protocol string)
 features = df.drop(columns=["label", "session_id", "src_ip", "dst_ip",
-                              "timestamp_session"])
+                            "timestamp_session", "protocol"])
 labels   = df["label"]
-prep = DataPreprocessor(n_top_features=15, pca_variance=0.95, resample=True)
-X_3d, y = prep.fit_transform(features, labels)
 
-# 3. Train
+# 3. Train — the trainer splits the raw rows first, then fits feature
+#    selection, PCA and SMOTE on the training split only (no leakage)
+prep = DataPreprocessor(n_top_features=15, pca_variance=0.95, resample=True)
 cfg = TrainingConfig(filters=112, kernel_size=6, dense_units=43,
                      dropout_rate=0.43, learning_rate=3.01e-4)
 trainer = Trainer(cfg)
-trainer.fit(X_3d, y, pretrain=True)
+trainer.fit_from_features(features, labels, prep, pretrain=True)
 
-# 4. Evaluate
+# 4. Evaluate on the held-out test split (real rows, natural class balance)
 results = trainer.evaluate()
 print(results)  # {'accuracy': …, 'f1': …, 'auc_roc': …}
 
-# 5. Real-time inference
+# 5. Real-time inference on new traffic, using the pipeline fitted in step 3
+X_new_3d = prep.transform(new_features)
 predictions = trainer.predict_realtime(X_new_3d)
 ```
 
@@ -292,19 +301,37 @@ realtime_inference(
 
 ## Results
 
-Trained on the N-BaIoT dataset (Danmini Doorbell + Ecobee Thermostat, 9
-device types combined) with the default hyperparameters:
+N-BaIoT, all nine devices combined (7,062,606 rows, 92.1% malicious), with
+the default hyperparameters and seed 42, evaluated on a held-out test split
+of 1,059,391 real rows:
 
-| Metric | Value |
-|---|---|
-| Accuracy | **99.41%** |
-| Precision | **99.38%** |
-| Recall | **99.54%** |
-| F1-Score | **99.46%** |
-| AUC-ROC | **99.97%** |
+| Metric | 2024 report | 2026 leak-free pipeline |
+|---|---|---|
+| Accuracy | 99.41% | **99.88%** |
+| Precision | 99.38% | **99.95%** |
+| Recall | 99.54% | **99.92%** |
+| F1-Score | 99.46% | **99.93%** |
+| AUC-ROC | 99.97% | **99.97%** |
+| False-positive rate | — | **0.57%** |
 
-> Results are reproducible with `--seed 42`. The test split (15%) is held
-> out before any preprocessing or resampling is applied.
+**How the evaluation is protected.** The raw rows are split first
+(stratified 65/15/15/5). Feature selection, scaling, PCA and SMOTE are fitted
+on the training split only, so the test set contains real rows with their
+natural class balance and no synthetic rows.
+
+**How to read these numbers.**
+
+- The 2026 figures come from a shortened schedule (2 pretraining + 3
+  fine-tuning epochs). Full-schedule training (30 + 50 epochs) is still to be
+  rerun.
+- Because 92.1% of rows are malicious, flagging everything would already
+  reach 92.1% accuracy. The false-positive rate (0.57% of benign traffic
+  flagged) is the more telling figure for the benign class.
+- Rows are split at random, so test traffic comes from the same devices as
+  the training traffic. Evaluation on held-out devices is planned.
+
+Full details, including a side-by-side run of the old (leaky) pipeline, are
+in [test-outputs/VALIDATION_2026-11-16.md](test-outputs/VALIDATION_2026-11-16.md).
 
 ---
 
