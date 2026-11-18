@@ -796,6 +796,47 @@ ls -lh checkpoints/nbaiot_full/
 # confusion_matrix.png
 ```
 
+### Step 4.4 — Full-schedule run with acceptance gate (recorded evidence)
+
+Results published in `test-outputs/` come from this procedure. The run
+script records the git commit and whether the working tree had uncommitted
+changes:
+```bash
+DATA=/path/to/N-BaIoT/Dataset
+python scripts/full_schedule_run.py \
+    --data_folder "$DATA" --summary_csv "$DATA/data_summary.csv" \
+    --out runs/full_schedule
+```
+
+A run is accepted only after the gate passes. The gate runs the model
+regression tests on the local machine (on Apple Silicon this includes the
+GPU-against-CPU check for BUG-29) and `scripts/verify_run.py`, which loads
+the exported `classifier_best.keras` in a fresh process and checks:
+
+- split sizes, test class counts and PCA width match `results.json`;
+- the hidden ReLU is present and `predict()` matches a NumPy forward pass
+  with it (BUG-29);
+- no `training=True` is stored in the graph, repeated inference is
+  identical, and eager and graph execution agree (BUG-28);
+- graph-mode output on a GPU matches the CPU;
+- re-tuning the threshold reproduces the run's threshold;
+- test and real-time confusion counts reproduce exactly, other metrics to
+  1e-9.
+
+```bash
+scripts/acceptance_gate.sh --run_dir runs/full_schedule \
+    --data_folder "$DATA" --summary_csv "$DATA/data_summary.csv" \
+    --skip_training_check
+```
+`--skip_training_check` is needed when the run was started directly as
+above; without it the gate also requires `finished with exit code 0` in
+`<run_dir>/launcher.log`, which the unattended launcher writes. The gate
+writes `verification/verification.json` (with `"passed": true` or
+`false`), the regression-test log, regenerated plots and ROC points, then
+prints `ACCEPTANCE GATE PASSED` and exits 0, or prints
+`ACCEPTANCE GATE FAILED` and exits 1. A run counts as a results baseline
+only when all three agree.
+
 ---
 
 ## Phase 5 — Evaluation Phase
