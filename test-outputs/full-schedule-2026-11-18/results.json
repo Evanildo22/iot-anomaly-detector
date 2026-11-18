@@ -1,0 +1,60 @@
+{
+  "dataset": "N-BaIoT, all nine devices",
+  "rows": 7062606,
+  "config": {
+    "filters": 112,
+    "kernel_size": 6,
+    "dropout_rate": 0.43,
+    "dense_units": 43,
+    "l1_reg": 2.9e-06,
+    "l2_reg": 0.000625,
+    "learning_rate": 0.000301,
+    "pretrain_epochs": 30,
+    "finetune_epochs": 50,
+    "batch_size": 256,
+    "early_stopping_patience": 10,
+    "val_size": 0.15,
+    "test_size": 0.15,
+    "realtime_size": 0.05,
+    "benign_label": 0,
+    "random_state": 42
+  },
+  "split_sizes": {
+    "train_after_resampling": 8458676,
+    "val": 1059391,
+    "test": 1059391,
+    "realtime": 353131
+  },
+  "test_class_counts": [
+    83390,
+    976001
+  ],
+  "pca_components": 11,
+  "threshold": 0.09560876339673996,
+  "test_metrics": {
+    "accuracy": 0.9991259129065662,
+    "precision": 0.9995645157158594,
+    "recall": 0.9994866808538106,
+    "f1": 0.9995255967695497,
+    "fpr": 0.005096534356637487,
+    "auc_roc": 0.9998773367847021,
+    "tn": 82965,
+    "fp": 425,
+    "fn": 501,
+    "tp": 975500
+  },
+  "realtime_metrics": {
+    "accuracy": 0.9991504569125905,
+    "precision": 0.9996187923094423,
+    "recall": 0.9994590175020133,
+    "f1": 0.9995388985207865,
+    "fpr": 0.004460913048170666,
+    "auc_roc": 0.999882572686972,
+    "tn": 27673,
+    "fp": 124,
+    "fn": 176,
+    "tp": 325158
+  },
+  "wall_clock_hours": 6.98,
+  "training_hours": 6.92
+}

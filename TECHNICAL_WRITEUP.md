@@ -424,13 +424,18 @@ enforces a clean separation between training and evaluation, uses all
 feature families correctly, and corrects the class imbalance handling.
 
 In November 2026 the corrected, split-first pipeline was run on all nine
-N-BaIoT devices (7,062,606 rows) with a shortened 2 + 3 epoch schedule.
-On 1,059,391 real held-out rows with their natural 92.13% malicious share,
-it reached accuracy 0.9988, precision 0.9995, recall 0.9992, F1 0.9993 and
-AUC-ROC 0.9997, with a false-positive rate of 0.57%. Performance therefore
-remained strong once the leakage was removed. This is at the same general
-level as the 2024 report, but it is not a direct reproduction: the training
-schedule and evaluation protocol differ. The leaky pipeline was also rerun,
+N-BaIoT devices (7,062,606 rows). A shortened 2 + 3 epoch run was followed
+by the report's full 30 + 50 epoch schedule (early stopping ended the two
+phases at epochs 25 and 43). On 1,059,391 real held-out rows with their
+natural 92.13% malicious share, the full-schedule model reached accuracy
+0.9991, precision 0.9996, recall 0.9995, F1 0.9995 and AUC-ROC 0.9999, with
+425 false alarms among 83,390 benign rows (false-positive rate 0.51%) and
+501 missed attacks among 976,001 malicious rows; the shortened run, on the
+identical split, gave 475 false alarms and 803 missed attacks. Performance
+therefore remained strong once the leakage was removed. This is at the same
+general level as the 2024 report, but it is not a direct reproduction:
+although the hyperparameters and epoch budget now match, the evaluation
+protocol differs. The leaky pipeline was also rerun (shortened schedule),
 but its test set was roughly balanced and mostly synthetic, so its scores
 cannot be compared metric-for-metric with the corrected ones, and the
 experiment does not show how much the leakage inflated the original

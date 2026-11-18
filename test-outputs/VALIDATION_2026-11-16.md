@@ -1,4 +1,4 @@
-# Validation Record — 2026-11-16 / 2026-11-17
+# Validation Record — 2026-11-16 to 2026-11-18
 
 First full execution of the TESTING_GUIDE_M2Max.md plan (the 2026-04 session
 created the phase folders but never ran the tests). Hardware: MacBook Pro
@@ -84,6 +84,51 @@ model's ability to separate the classes stayed strong. Further caveats:
   capture sessions as the training set. Per-device hold-out evaluation
   (roadmap Phase 3) is needed to measure generalisation to unseen devices.
 
+## Full-schedule run with the corrected pipeline (2026-11-17/18)
+
+The corrected pipeline was then trained with the report's full schedule
+(30 pretraining + 50 fine-tuning epochs, early-stopping patience 10) on all
+nine devices, with the same hyperparameters, seed 42 and therefore the same
+split and test set as the shortened run above. Wall-clock time was 6.98
+hours (6.92 hours of training) on the MacBook Pro M2 Max.
+
+- Pretraining stopped at epoch 25 (best validation loss at epoch 15);
+  fine-tuning stopped at epoch 43 (best at epoch 33). The best weights were
+  used for evaluation.
+- PCA kept 11 components; the validation-tuned threshold is 0.0956.
+
+Because the two runs share the same test set, this comparison is a direct
+one: only the training schedule changed.
+
+| Metric | Shortened run (2 + 3 epochs) | Full schedule (30 + 50 epochs) |
+|---|---|---|
+| Accuracy | 0.99879 | 0.99913 |
+| Precision | 0.99951 | 0.99956 |
+| Recall | 0.99918 | 0.99949 |
+| F1 | 0.99935 | 0.99953 |
+| AUC-ROC | 0.99973 | 0.99988 |
+| False alarms (FP) | 475 | 425 |
+| Missed attacks (FN) | 803 | 501 |
+| False-positive rate | 0.570% | 0.510% |
+
+Full-schedule confusion counts on the test set (from
+`confusion_matrix(y_test, y_pred).ravel()` in the run itself):
+
+| | Predicted benign | Predicted malicious |
+|---|---|---|
+| **Actually benign** (83,390) | 82,965 (true negatives) | 425 (false alarms) |
+| **Actually malicious** (976,001) | 501 (missed attacks) | 975,500 (true positives) |
+
+On the separate real-time split (353,131 rows: 27,797 benign, 325,334
+malicious) the same model gave accuracy 0.99915, F1 0.99954, AUC-ROC
+0.99988, with 124 false alarms (FPR 0.446%) and 176 missed attacks.
+
+The longer schedule reduced missed attacks by 37.6% (803 → 501) and false
+alarms by 10.5% (475 → 425). Each figure comes from a single seed, so the
+size of these differences has no confidence interval yet; repeated seeds or
+k-fold evaluation (roadmap Phase 3) would provide one. Metrics, plots and a
+condensed training log are in `full-schedule-2026-11-18/`.
+
 ## Bugs found and fixed
 
 1. **Broken package import** — `src/iot_anomaly/data/__init__.py` exported
@@ -127,8 +172,8 @@ model's ability to separate the classes stayed strong. Further caveats:
 ## Conclusion
 
 The pipeline is functional end to end on both dataset families and its
-evaluation is now leak-free. The corrected shortened run achieves
+evaluation is now leak-free. The corrected full-schedule run achieves
 performance at the same general level as the 2024 report, but it is not a
-direct reproduction, because the training schedule and evaluation protocol
-differ. Phase 7 (adversarial, optional) is the only guide item not
+direct reproduction: the hyperparameters and epoch budget match, but the
+evaluation protocol differs. Phase 7 (adversarial, optional) is the only guide item not
 exercised.
