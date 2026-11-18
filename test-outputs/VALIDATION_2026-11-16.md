@@ -27,11 +27,14 @@ phase's evidence was regenerated with the corrected pipeline.
 | 2 | Feature correctness (BUG-01/02/05/07); split-first preprocessing | PASS — 307 features/session; splits disjoint; test set keeps natural balance |
 | 3 | Model architecture build | PASS (after fix 3) for input lengths 8/11/13/15/23 |
 | 4 | Two-phase training (2 pretrain + 3 finetune epochs) | PASS (after fixes 4, 6, 7) |
-| 5 | Held-out test-set evaluation (single-device subset) | PASS — acc 0.9988, prec 0.9989, rec 0.9995, F1 0.9992, AUC 0.9996 |
+| 5 | Held-out test-set evaluation (single-device subset) | PASS — acc 0.9990, prec 0.9990, rec 0.9995, F1 0.9993, AUC 1.0000 (rounded); 19 false alarms of 7,432 benign rows, 9 missed attacks |
 | 6 | PCAP → features → labels → CSV (CTU-IoT-Malware-Capture-34-1 irc.pcap) | PASS — 4,055 sessions, labels joined |
 | 7 | Adversarial robustness (ART) | NOT RUN — optional extra, ART not installed |
-| 8 | Real-time inference | PASS — 9,080 real rows, F1 0.9989 |
+| 8 | Real-time inference | PASS — 9,080 real rows, F1 0.9990 |
 | 9 | Integration (load → split → preprocess → train → eval → realtime) | PASS |
+
+The phase 3–5, 8 and 9 evidence was regenerated on 2026-11-18 with the
+BUG-27/28/29 fixes, so this table reflects the fixed model.
 
 Phases 2–5, 8 and 9 use the single-device subset (1.benign / 1.mirai.ack /
 1.gafgyt.scan, 181,592 rows → PCA 11 components) at smoke scale.

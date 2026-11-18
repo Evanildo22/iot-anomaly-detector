@@ -5,5 +5,5 @@ report hyperparameters otherwise.
 model inputs — train 171656 (SMOTE-balanced: [85828, 85828]) | val 27239 | test 27239 | realtime 9080 (real rows)
 Phase 1 (autoencoder MSE pretraining): real benign training rows only (BUG-26 fix)
 Phase 2 (classifier BCE fine-tuning): resampled training split
-best checkpoint reloaded; optimal F1 threshold (val): 0.6582
+best checkpoint reloaded; optimal F1 threshold (val): 0.0849
 PASS — full 30+50-epoch training is documented in the 2024 report

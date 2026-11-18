@@ -1,9 +1,9 @@
 Phase 6 — PCAP Pipeline (CTU-IoT-Malware-Capture-34-1, irc.pcap, 3.6 MB)
 Command: iot-process-pcap --pcap <scenario>/2018-12-21-15-50-14-192.168.1.195.irc.pcap --labels <scenario>/bro/conn.log.labeled --output ctu_features.csv
 
-2026-11-16 14:30:07,077 [INFO] process_pcap — Processing single PCAP: /Users/boss/Desktop/Final/VS Final Project/Dataset of network traffic/IoT-23 Dataset/opt/Malware-Project/BigDataset/IoTScenarios/CTU-IoT-Malware-Capture-34-1/2018-12-21-15-50-14-192.168.1.195.irc.pcap
-2026-11-16 14:30:07,116 [INFO] iot_anomaly.data.label_mapper — Loaded 23145 labeled sessions from /Users/boss/Desktop/Final/VS Final Project/Dataset of network traffic/IoT-23 Dataset/opt/Malware-Project/BigDataset/IoTScenarios/CTU-IoT-Malware-Capture-34-1/bro/conn.log.labeled
-2026-11-16 14:30:07,116 [INFO] iot_anomaly.data.parser — Parsing PCAP: /Users/boss/Desktop/Final/VS Final Project/Dataset of network traffic/IoT-23 Dataset/opt/Malware-Project/BigDataset/IoTScenarios/CTU-IoT-Malware-Capture-34-1/2018-12-21-15-50-14-192.168.1.195.irc.pcap
+2026-11-16 14:30:07,077 [INFO] process_pcap — Processing single PCAP: <IoT-23>/CTU-IoT-Malware-Capture-34-1/2018-12-21-15-50-14-192.168.1.195.irc.pcap
+2026-11-16 14:30:07,116 [INFO] iot_anomaly.data.label_mapper — Loaded 23145 labeled sessions from <IoT-23>/CTU-IoT-Malware-Capture-34-1/bro/conn.log.labeled
+2026-11-16 14:30:07,116 [INFO] iot_anomaly.data.parser — Parsing PCAP: <IoT-23>/CTU-IoT-Malware-Capture-34-1/2018-12-21-15-50-14-192.168.1.195.irc.pcap
 2026-11-16 14:30:09,595 [INFO] iot_anomaly.data.label_mapper — Label distribution before filtering:
 label_raw
 -   malicious   c&c    4055
