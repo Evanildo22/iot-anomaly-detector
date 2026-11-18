@@ -831,6 +831,10 @@ scripts/acceptance_gate.sh --run_dir runs/full_schedule \
 `--skip_training_check` is needed when the run was started directly as
 above; without it the gate also requires `finished with exit code 0` in
 `<run_dir>/launcher.log`, which the unattended launcher writes. The gate
+must also run from a clean git working tree that does not change while it
+runs; it records its commit, the SHA-256 of the gate script and the tree
+state in `verification/gate_provenance.txt`, and fails on a dirty tree
+unless `--allow_dirty` is given (which is then recorded). The gate
 writes `verification/verification.json` (with `"passed": true` or
 `false`), the regression-test log, regenerated plots and ROC points, then
 prints `ACCEPTANCE GATE PASSED` and exits 0, or prints
