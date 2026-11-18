@@ -155,7 +155,7 @@ def main(argv: list[str] | None = None) -> None:
     # ── Plots ─────────────────────────────────────────────────────────────────
     os.makedirs(args.save_dir, exist_ok=True)
     y_proba = trainer.classifier.predict(trainer._X_test).ravel()
-    y_pred  = (y_proba > trainer.threshold).astype(int)
+    y_pred  = (y_proba >= trainer.threshold).astype(int)
     plot_roc_curve(trainer._y_test, y_proba,
                    save_path=os.path.join(args.save_dir, "roc_curve.png"))
     plot_confusion_matrix(trainer._y_test, y_pred,

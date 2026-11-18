@@ -5,6 +5,10 @@ Fixed bugs vs original:
   BUG-13  Attention is now applied to the encoder output (compressed embedding),
           NOT to the autoencoder's decoder/reconstruction output.
   BUG-18  Custom KerasClassifier wrapper renamed to avoid shadowing ART's class.
+  BUG-28  The encoder was called with training=True baked into the graph, so
+          its dropout stayed active during prediction.
+  BUG-29  On Apple GPUs (tensorflow-metal 1.0.1) the hidden layer's ReLU was
+          dropped in graph mode; the ReLU is now a separate MaxReLU layer.
 
 Architecture:
     Input
@@ -26,11 +30,26 @@ from tensorflow.keras.layers import (
     Dropout,
     Flatten,
     Input,
+    Layer,
     Multiply,
     Permute,
 )
 from tensorflow.keras.optimizers import Adam
 from sklearn.base import BaseEstimator
+
+
+@tf.keras.utils.register_keras_serializable(package="iot_anomaly")
+class MaxReLU(Layer):
+    """ReLU written as tf.maximum(x, 0) (FIX BUG-29).
+
+    tensorflow-metal 1.0.1 fuses Dense → ReLU → Dense in graph mode and drops
+    the ReLU, so fit() and predict() on an Apple GPU silently trained a linear
+    hidden layer. Dense(activation="relu"), Activation("relu"), ReLU() and
+    LeakyReLU(0) are all affected; tf.maximum is not fused and stays correct.
+    """
+
+    def call(self, inputs):
+        return tf.maximum(inputs, 0.0)
 
 
 # ── Attention block ────────────────────────────────────────────────────────────
@@ -95,7 +114,13 @@ def build_classifier(
 
     # FIX BUG-13: pass through the *encoder* (not the full autoencoder)
     # bottleneck shape: (batch, time/4, filters/2)
-    bottleneck = encoder(inputs, training=not freeze_encoder)
+    # FIX BUG-28: never hard-code training=True here — it is stored in the
+    # graph and keeps the encoder's dropout active at inference. Without an
+    # explicit flag the training phase propagates from fit() / predict().
+    if freeze_encoder:
+        bottleneck = encoder(inputs, training=False)
+    else:
+        bottleneck = encoder(inputs)
 
     # Temporal attention over the compressed embedding
     attended = temporal_attention(bottleneck, name_prefix="clf_")
@@ -103,10 +128,10 @@ def build_classifier(
     flat = Flatten(name="clf_flatten")(attended)
     hidden = Dense(
         dense_units,
-        activation="relu",
         kernel_regularizer=regularizers.l1_l2(l1=l1_reg, l2=l2_reg),
         name="clf_dense",
     )(flat)
+    hidden = MaxReLU(name="clf_relu")(hidden)  # not Dense(activation="relu"): BUG-29
     hidden = Dropout(dropout_rate, name="clf_dropout")(hidden)
     output = Dense(1, activation="sigmoid", name="clf_output")(hidden)
 

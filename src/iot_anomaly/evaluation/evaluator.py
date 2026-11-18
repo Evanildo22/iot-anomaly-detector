@@ -131,7 +131,7 @@ def realtime_inference(
         batch = X_stream[start : start + batch_size]
         proba = model.predict(batch, verbose=0).ravel()
         for i, p in enumerate(proba):
-            if p > threshold:
+            if p >= threshold:
                 alerts += 1
                 logger.warning(
                     "ANOMALY DETECTED — sample %d | p=%.4f | threshold=%.4f",

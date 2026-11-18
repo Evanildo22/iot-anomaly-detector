@@ -133,6 +133,9 @@ def find_optimal_threshold(
     Find the decision threshold that maximises F1.
 
     FIX BUG-20: aligns precision, recall, thresholds arrays before indexing.
+
+    precision_recall_curve counts a score as positive when it is >= the
+    threshold, so predictions must use >= as well (FIX BUG-27).
     """
     precision, recall, thresholds = precision_recall_curve(y_true, y_pred_proba)
     # precision_recall_curve returns len(n+1) for precision/recall, len(n) for thresholds
@@ -345,13 +348,13 @@ class Trainer:
         if self.classifier is None:
             raise RuntimeError("Call fit_from_features() or fit() before evaluate().")
         y_proba = self.classifier.predict(self._X_test).ravel()
-        y_pred  = (y_proba > self.threshold).astype(int)
+        y_pred  = (y_proba >= self.threshold).astype(int)
         return compute_metrics(self._y_test, y_pred, y_proba)
 
     def predict_realtime(self, X: np.ndarray) -> np.ndarray:
         """Binary predictions for real-time inference."""
         proba = self.classifier.predict(X).ravel()
-        return (proba > self.threshold).astype(int)
+        return (proba >= self.threshold).astype(int)
 
     # ── Internal helpers ───────────────────────────────────────────────────
 
