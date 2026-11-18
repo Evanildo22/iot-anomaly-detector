@@ -254,7 +254,7 @@ python scripts/train.py \
 ### Running the tests
 
 ```bash
-pytest                                   # 72 tests, about 1 minute on a laptop CPU
+pytest                                   # 90 tests, under a minute on a laptop
 pytest --cov=iot_anomaly                 # with a coverage report
 ```
 

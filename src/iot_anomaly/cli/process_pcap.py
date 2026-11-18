@@ -58,7 +58,9 @@ def main(argv: list[str] | None = None) -> None:
         logger.info("Processing PCAP directory: %s", args.pcap_dir)
         labeled_data = parse_conn_log_labeled(args.labels)
         raw_df = parser.parse_directory(args.pcap_dir)
-        df = map_labels(raw_df, labeled_data)
+        # map_labels cannot add columns to a column-less frame; let the
+        # empty check below report the problem instead.
+        df = map_labels(raw_df, labeled_data) if not raw_df.empty else raw_df
 
     if df.empty:
         logger.error("No sessions extracted — check the PCAP and label paths.")

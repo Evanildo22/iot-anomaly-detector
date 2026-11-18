@@ -29,6 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      # requirements.txt must also resolve on Linux: tensorflow-metal carries
+      # a platform marker so it is skipped here.
+      - name: Check requirements.txt resolves
+        run: pip install --dry-run -r requirements.txt
+
       - name: Test
         env:
           TF_CPP_MIN_LOG_LEVEL: "2"

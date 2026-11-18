@@ -13,7 +13,7 @@ imbalanced-learn==0.12.4     # 0.13+ requires numpy>=1.25 which conflicts with t
 # Option B (PERFORMANCE — future upgrade): tensorflow==2.17.1 + tensorflow-metal==1.1.0
 #   Note: TF 2.16+ uses Keras 3 by default — expect breaking changes in model/layer APIs
 tensorflow==2.13.0
-tensorflow-metal==1.0.1  # Apple Silicon GPU acceleration (replaces CUDA); requires Python 3.10–3.11
+tensorflow-metal==1.0.1; platform_system == "Darwin" and platform_machine == "arm64"  # Apple Silicon GPU only; skipped elsewhere
 
 # Visualisation
 matplotlib>=3.7.0

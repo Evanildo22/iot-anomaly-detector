@@ -547,7 +547,7 @@ reproducible across runs.
 Both scripts run as top-level code with hard-coded file paths, making them untestable
 and non-portable.  Any function can silently break without detection.
 
-> **Update (2026-11-18):** the package now has a pytest suite (`tests/`, 72
+> **Update (2026-11-18):** the package now has a pytest suite (`tests/`, 90
 > tests on synthetic fixtures) that runs in GitHub Actions on every push.
 
 ---
@@ -667,6 +667,19 @@ layer computing `tf.maximum(x, 0)`, which the plugin does not fuse. Tests compar
 
 ---
 
+### BUG-30 🟡 `iot-process-pcap --pcap_dir` crashes on a directory without PCAPs
+
+**File:** `cli/process_pcap.py`
+
+With no `.pcap` files the parser returns a column-less DataFrame, and `map_labels`
+failed on it (`Cannot set a DataFrame without columns`) before the intended
+"No sessions extracted" error could run.
+
+**Fix:** labels are joined only when sessions were found, so the command exits with
+the clear error and status 1.
+
+---
+
 ## 4. Summary Table
 
 | ID | Severity | Location | Description |
@@ -700,6 +713,7 @@ layer computing `tf.maximum(x, 0)`, which the plugin does not fuse. Tests compar
 | BUG-27 | 🟡 Minor | `training/trainer.py` | Threshold applied with `>` although tuned as `>=` |
 | BUG-28 | 🔴 Critical | `models/classifier.py` | `training=True` baked into the encoder call — dropout active at inference |
 | BUG-29 | 🔴 Critical | `models/classifier.py` | tensorflow-metal drops the hidden ReLU in graph mode |
+| BUG-30 | 🟡 Minor | `cli/process_pcap.py` | Empty PCAP directory crashes instead of reporting no sessions |
 | ARCH-01 | 🔵 Arch | all | No unified dataset abstraction |
 | ARCH-02 | 🔵 Arch | all | Feature schema hard-coded and fragile |
 | ARCH-03 | 🔵 Arch | all | Hyperparameters as magic numbers |
