@@ -1,9 +1,10 @@
 # IoT Anomaly Detector
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue?logo=python)](https://www.python.org/)
-[![TensorFlow 2.13+](https://img.shields.io/badge/TensorFlow-2.13%2B-orange?logo=tensorflow)](https://tensorflow.org/)
+[![CI](https://github.com/Evanildo22/iot-anomaly-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanildo22/iot-anomaly-detector/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Evanildo22/iot-anomaly-detector/badges/coverage.json)](https://github.com/Evanildo22/iot-anomaly-detector/actions/workflows/ci.yml)
+[![Python 3.10–3.11](https://img.shields.io/badge/python-3.10%E2%80%933.11-blue?logo=python)](https://www.python.org/)
+[![TensorFlow 2.13](https://img.shields.io/badge/TensorFlow-2.13-orange?logo=tensorflow)](https://tensorflow.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://black.readthedocs.io/)
 
 > **Network-level anomaly detection for IoT devices** using a two-phase
 > Convolutional Autoencoder with Temporal Attention — supporting raw PCAP
@@ -203,8 +204,12 @@ iot-anomaly-detector/
 │       │   └── classifier.py        ← attention head + KerasAnomalyClassifier
 │       ├── training/
 │       │   └── trainer.py           ← two-phase trainer, canonical splits
-│       └── evaluation/
-│           └── evaluator.py         ← metrics, ROC, CM, real-time inference
+│       ├── evaluation/
+│       │   └── evaluator.py         ← metrics, ROC, CM, real-time inference
+│       └── cli/                     ← iot-train / iot-process-pcap entry points
+│
+├── tests/                           ← pytest suite on synthetic data (no downloads)
+├── test-outputs/                    ← validation record and run evidence
 │
 ├── scripts/
 │   ├── process_pcap.py              ← CLI: PCAP → features CSV
@@ -245,6 +250,19 @@ python scripts/train.py \
     --features_csv data/processed/ctu_features.csv \
     --save_dir checkpoints/ctu
 ```
+
+### Running the tests
+
+```bash
+pytest                                   # 72 tests, about 1 minute on a laptop CPU
+pytest --cov=iot_anomaly                 # with a coverage report
+```
+
+The suite needs no dataset: PCAP files, Zeek label logs and N-BaIoT-style
+tables are generated on the fly. It covers feature extraction, PCAP
+parsing, label joining, the split-first leakage guarantee, model shapes,
+metrics, an end-to-end train-and-evaluate run and the CLI. CI runs it on
+every push.
 
 ---
 
@@ -300,6 +318,15 @@ realtime_inference(
 ---
 
 ## Results
+
+> **Notice (2026-11-18): rerun in progress.** Writing the test suite
+> exposed two model bugs that affect every figure below: the encoder's
+> dropout stayed active at prediction time (BUG-28), and on Apple GPUs the
+> classifier's hidden ReLU was silently dropped (BUG-29). Re-evaluating the
+> saved model in a fresh process gave a markedly higher false-positive rate,
+> so these figures are not reliable. Both bugs are fixed and the
+> full-schedule training is being rerun; this section will be replaced with
+> its results.
 
 N-BaIoT, all nine devices combined (7,062,606 rows, 92.1% malicious), with
 the report's hyperparameters, the full 30 + 50 epoch schedule and seed 42,

@@ -547,6 +547,9 @@ reproducible across runs.
 Both scripts run as top-level code with hard-coded file paths, making them untestable
 and non-portable.  Any function can silently break without detection.
 
+> **Update (2026-11-18):** the package now has a pytest suite (`tests/`, 72
+> tests on synthetic fixtures) that runs in GitHub Actions on every push.
+
 ---
 
 ## 3b. Findings from the November 2026 Validation
@@ -607,6 +610,63 @@ is measured on benign validation rows.
 
 ---
 
+## 3c. Findings from the Test Suite (2026-11-18)
+
+These were found while writing the pytest suite (`tests/`). Each now has a
+regression test.
+
+### BUG-27 🟡 Prediction threshold applied with `>` instead of `>=`
+
+**Files:** `training/trainer.py`, `cli/train.py`, `evaluation/evaluator.py`
+
+`find_optimal_threshold` takes its threshold from `precision_recall_curve`, which
+counts a score as positive when it is `>=` the threshold, and the returned threshold
+is itself a validation score. Predictions used `>`, so the validation row sitting
+exactly on the threshold was classified differently from how the threshold was
+tuned. A check against both saved full-dataset models found no test or real-time row
+exactly on the threshold, so no published count changed.
+
+**Fix:** `>=` everywhere a threshold is applied.
+
+---
+
+### BUG-28 🔴 Encoder dropout active at prediction time
+
+**File:** `models/classifier.py`
+
+`build_classifier` called the encoder as `encoder(inputs, training=not
+freeze_encoder)`. With the default `freeze_encoder=False`, Keras stored
+`training=True` in the model graph, so the encoder's dropout layer (rate 0.43 with
+the report's settings) stayed active during `predict()` and `evaluate()`. Inside
+the training process the seeded dropout made predictions look deterministic, but the
+same weights evaluated in a fresh process gave very different results: the
+full-schedule model's test false alarms rose from 425 to 4,550. Every evaluation
+figure published before this fix depended on dropout masks.
+
+**Fix:** the encoder is called without a hard-coded flag, so the training phase
+propagates from `fit()` and `predict()`; a frozen encoder is called with
+`training=False`.
+
+---
+
+### BUG-29 🔴 Hidden ReLU dropped on Apple GPUs (tensorflow-metal 1.0.1)
+
+**File:** `models/classifier.py`
+
+In graph mode, which `fit()` and `predict()` use, tensorflow-metal 1.0.1 fuses the
+classifier head's `Dense → ReLU → Dense` pattern and drops the ReLU. The GPU
+output matched a NumPy forward pass *without* the ReLU to within 1e-7. Models trained
+on the M2 Max therefore had a linear hidden layer, and the same weights gave
+different predictions on a CPU. `Dense(activation="relu")`, `Activation("relu")`,
+`ReLU()` and `LeakyReLU(0)` are all affected; eager mode, the encoder's `Conv1D`
+ReLUs and the attention layer are not.
+
+**Fix:** the hidden layer is a linear `Dense` followed by a registered `MaxReLU`
+layer computing `tf.maximum(x, 0)`, which the plugin does not fuse. Tests compare
+`predict()` with a NumPy forward pass and, when a GPU is present, with the CPU.
+
+---
+
 ## 4. Summary Table
 
 | ID | Severity | Location | Description |
@@ -637,6 +697,9 @@ is measured on benign validation rows.
 | BUG-24 | 🔴 Critical | `models/autoencoder.py` | Reconstruction longer than input when PCA length % 4 ≠ 0 |
 | BUG-25 | 🔴 Critical | `cli/train.py`, `training/trainer.py` | Selection, PCA and SMOTE fitted before the split — test set leaked |
 | BUG-26 | 🟠 Major | `training/trainer.py` | Autoencoder pretrained on attack and synthetic rows, not benign only |
+| BUG-27 | 🟡 Minor | `training/trainer.py` | Threshold applied with `>` although tuned as `>=` |
+| BUG-28 | 🔴 Critical | `models/classifier.py` | `training=True` baked into the encoder call — dropout active at inference |
+| BUG-29 | 🔴 Critical | `models/classifier.py` | tensorflow-metal drops the hidden ReLU in graph mode |
 | ARCH-01 | 🔵 Arch | all | No unified dataset abstraction |
 | ARCH-02 | 🔵 Arch | all | Feature schema hard-coded and fragile |
 | ARCH-03 | 🔵 Arch | all | Hyperparameters as magic numbers |

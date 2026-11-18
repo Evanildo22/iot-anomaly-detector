@@ -1,5 +1,13 @@
 # Validation Record — 2026-11-16 to 2026-11-18
 
+> **Notice (2026-11-18).** The test suite added afterwards exposed two model
+> bugs that affect every model-evaluation figure in this record: encoder
+> dropout stayed active at prediction time (BUG-28), and on the Apple GPU
+> the classifier's hidden ReLU was dropped (BUG-29). See
+> `BUG_ANALYSIS.md` section 3c. The figures below are kept as the record of
+> what was run, but they are not reliable measurements; the full-schedule
+> training is being rerun with both fixes.
+
 First full execution of the TESTING_GUIDE_M2Max.md plan (the 2026-04 session
 created the phase folders but never ran the tests). Hardware: MacBook Pro
 M2 Max, 64 GB, tensorflow-metal (GPU active). Stack: Python 3.11.5,

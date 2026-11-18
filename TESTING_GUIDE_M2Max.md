@@ -779,7 +779,9 @@ machine (6.9 hours; early stopping at epochs 25 and 43), produced:
   auc_roc      0.9999
   tn 82965 | fp 425 | fn 501 | tp 975500
 ```
-These are reference values from one run with seed 42. Small differences
+*(Notice, 2026-11-18: these values predate the BUG-28/BUG-29 fixes and
+will be replaced by the rerun's results.)* These are reference values from
+one run with seed 42. Small differences
 are expected on other hardware or library versions, because GPU training
 is not bit-for-bit deterministic. The full record is in
 `test-outputs/full-schedule-2026-11-18/`.

@@ -19,7 +19,7 @@ setup(
         "seaborn>=0.12.0",
     ],
     extras_require={
-        "dev": ["pytest", "black", "isort", "mypy"],
+        "dev": ["pytest", "pytest-cov", "black", "isort", "mypy"],
         "hpo": ["scikit-optimize>=0.9.0"],
         "adversarial": ["adversarial-robustness-toolbox>=1.16.0"],
         "explainability": ["shap>=0.42.0"],

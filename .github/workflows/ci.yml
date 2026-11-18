@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: setup.py
+
+      # tensorflow-metal (in requirements.txt) is macOS-only, so CI installs
+      # the package's own dependencies from setup.py instead.
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Test
+        env:
+          TF_CPP_MIN_LOG_LEVEL: "2"
+        run: |
+          pytest --cov=iot_anomaly --cov-report=term-missing --cov-report=json:coverage.json -q
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          pct = json.load(open("coverage.json"))["totals"]["percent_covered"]
+          print(f"### Test coverage: {pct:.1f}%")
+          PY
+
+      - name: Coverage badge data
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          python - <<'PY'
+          import json
+          pct = json.load(open("coverage.json"))["totals"]["percent_covered"]
+          color = "brightgreen" if pct >= 85 else "green" if pct >= 75 else "yellow" if pct >= 60 else "red"
+          json.dump({"schemaVersion": 1, "label": "coverage", "message": f"{pct:.0f}%",
+                     "color": color}, open("coverage-badge.json", "w"))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          name: coverage-badge
+          path: coverage-badge.json
+
+  badge:
+    # Publishes the coverage figure to an orphan 'badges' branch, which the
+    # README's shields.io endpoint badge reads. No external service needed.
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-badge
+      - name: Push to badges branch
+        run: |
+          mkdir out && mv coverage-badge.json out/coverage.json && cd out
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.json
+          git commit -q -m "Update coverage badge"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" badges

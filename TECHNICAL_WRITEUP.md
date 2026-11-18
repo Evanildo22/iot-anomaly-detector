@@ -423,6 +423,11 @@ that the evaluation was not strictly held-out. The refactored system
 enforces a clean separation between training and evaluation, uses all
 feature families correctly, and corrects the class imbalance handling.
 
+*(Notice, 2026-11-18: the figures in this paragraph were produced before
+BUG-28 and BUG-29 were found (encoder dropout active at inference; hidden
+ReLU dropped on the Apple GPU) and are not reliable; a rerun is in
+progress. See BUG_ANALYSIS.md section 3c.)*
+
 In November 2026 the corrected, split-first pipeline was run on all nine
 N-BaIoT devices (7,062,606 rows). A shortened 2 + 3 epoch run was followed
 by the report's full 30 + 50 epoch schedule (early stopping ended the two
