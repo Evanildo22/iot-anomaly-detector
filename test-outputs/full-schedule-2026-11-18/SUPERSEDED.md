@@ -18,5 +18,6 @@ day by the test suite (see `BUG_ANALYSIS.md`, section 3c):
   hidden ReLU was dropped in graph mode, so the model trained here had a
   linear hidden layer, unlike the documented architecture.
 
-The corrected full-schedule run (training commit `71bf719`) replaces this
-one once it passes fresh-process verification (`scripts/verify_run.py`).
+This run has been replaced by the corrected full-schedule run (training
+commit `71bf719`). That run passed fresh-process verification and the
+acceptance gate on 2026-11-18; see `../full-schedule-2026-11-18-fixed/`.

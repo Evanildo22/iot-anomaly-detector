@@ -1,12 +1,19 @@
 # Validation Record — 2026-11-16 to 2026-11-18
 
-> **Notice (2026-11-18).** The test suite added afterwards exposed two model
-> bugs that affect every model-evaluation figure in this record: encoder
-> dropout stayed active at prediction time (BUG-28), and on the Apple GPU
-> the classifier's hidden ReLU was dropped (BUG-29). See
-> `BUG_ANALYSIS.md` section 3c. The figures below are kept as the record of
-> what was run, but they are not reliable measurements; the full-schedule
-> training is being rerun with both fixes.
+> **Notice (updated 2026-11-18, 15:20).** The test suite added afterwards
+> exposed two model bugs, described in `BUG_ANALYSIS.md` section 3c:
+>
+> - **BUG-28:** encoder dropout stayed active at prediction time.
+> - **BUG-29:** on the Apple GPU, the classifier's hidden ReLU was dropped.
+>
+> Both bugs affect the full-dataset sections marked *superseded* below.
+> Those sections are kept as the record of what was run, but their figures
+> are not reliable measurements. The phase table has been regenerated with
+> the fixed model.
+>
+> A corrected full-schedule run then passed the acceptance gate, and its
+> verified figures are in the section "Corrected full-schedule run
+> (verified)".
 
 First full execution of the TESTING_GUIDE_M2Max.md plan (the 2026-04 session
 created the phase folders but never ran the tests). Hardware: MacBook Pro
@@ -39,7 +46,11 @@ BUG-27/28/29 fixes, so this table reflects the fixed model.
 Phases 2–5, 8 and 9 use the single-device subset (1.benign / 1.mirai.ack /
 1.gafgyt.scan, 181,592 rows → PCA 11 components) at smoke scale.
 
-## Old and corrected pipelines on the full dataset
+## Old and corrected pipelines on the full dataset (superseded)
+
+*Superseded: both runs in this section used the model before the BUG-28
+and BUG-29 fixes, so their figures are not reliable. The section is kept as
+a record.*
 
 Both pipelines were run on all nine N-BaIoT devices (7,062,606 rows:
 555,932 benign, 6,506,674 malicious) with the report's hyperparameters,
@@ -95,7 +106,74 @@ model's ability to separate the classes stayed strong. Further caveats:
   capture sessions as the training set. Per-device hold-out evaluation
   (roadmap Phase 3) is needed to measure generalisation to unseen devices.
 
-## Full-schedule run with the corrected pipeline (2026-11-17/18)
+## Corrected full-schedule run (verified, 2026-11-18)
+
+This run used the full schedule (30 pretraining + 50 fine-tuning epochs,
+early-stopping patience 10) on all nine devices. It used the report's
+hyperparameters, seed 42, and therefore the same split and test set as the
+runs above. The model had the BUG-27, BUG-28 and BUG-29 fixes, and training
+was at commit `71bf719`. Wall-clock time was 4.66 hours on the MacBook Pro
+M2 Max.
+
+- Pretraining stopped at epoch 25 (best validation loss at epoch 15).
+  Fine-tuning stopped at epoch 28 (best at epoch 18). The best weights were
+  used.
+- PCA kept 11 components, and the validation-tuned threshold is 0.1176.
+
+**Acceptance.** The run was accepted only after
+`scripts/acceptance_gate.sh` passed from a clean tree at commit `4e60127`,
+with three results:
+
+- training exit 0;
+- the local GPU regression tests passed (5 of 5);
+- `scripts/verify_run.py` passed all 16 fresh-process checks.
+
+The verifier reloaded the exported `classifier_best.keras` in a new
+process. It rebuilt the split and preprocessing, then confirmed four
+things:
+
+- Inference is deterministic, and eager and graph outputs agree (max
+  difference 1.2e-7).
+- `predict()` matches a NumPy forward pass with the ReLU (1.2e-7), but not
+  one without it (0.955).
+- GPU output matches the CPU (2.5e-6).
+- The threshold and every confusion count reproduce exactly.
+
+Test-set confusion counts, from `confusion_matrix(y_test, y_pred).ravel()`
+and identical in the fresh process:
+
+| | Predicted benign | Predicted malicious |
+|---|---|---|
+| **Actually benign** (83,390) | 83,007 (true negatives) | 383 (false alarms) |
+| **Actually malicious** (976,001) | 322 (missed attacks) | 975,679 (true positives) |
+
+| Metric | Test split (1,059,391 rows) | Real-time split (353,131 rows) |
+|---|---|---|
+| Accuracy | 0.99933 | 0.99935 |
+| Precision | 0.99961 | 0.99964 |
+| Recall | 0.99967 | 0.99966 |
+| F1 | 0.99964 | 0.99965 |
+| AUC-ROC | 0.99991 | 0.99994 |
+| False alarms (FPR) | 383 of 83,390 (0.459%) | 117 of 27,797 (0.421%) |
+| Missed attacks | 322 of 976,001 | 112 of 325,334 |
+
+The figures come from a single seed, so they have no confidence interval
+yet. Repeated seeds or k-fold evaluation (roadmap Phase 3) would provide
+one. They are not compared here with the superseded runs, whose figures are
+unreliable.
+
+The evidence is in `full-schedule-2026-11-18-fixed/`:
+
+- `results.json`, `verification.json` and `gate_provenance.txt`;
+- the test logs;
+- the regenerated plots and ROC points;
+- a condensed training log.
+
+## Full-schedule run before the BUG-28/29 fixes (2026-11-17/18, superseded)
+
+*Superseded by the verified run above. When this run's saved weights were
+re-evaluated in a fresh process, they gave 4,550 false alarms instead of
+the 425 shown here. Kept as a record only.*
 
 The corrected pipeline was then trained with the report's full schedule
 (30 pretraining + 50 fine-tuning epochs, early-stopping patience 10) on all
@@ -138,7 +216,8 @@ The longer schedule reduced missed attacks by 37.6% (803 → 501) and false
 alarms by 10.5% (475 → 425). Each figure comes from a single seed, so the
 size of these differences has no confidence interval yet; repeated seeds or
 k-fold evaluation (roadmap Phase 3) would provide one. Metrics, plots and a
-condensed training log are in `full-schedule-2026-11-18/`.
+condensed training log are in `full-schedule-2026-11-18/` (see its
+`SUPERSEDED.md`).
 
 ## Bugs found and fixed
 
@@ -182,9 +261,24 @@ condensed training log are in `full-schedule-2026-11-18/`.
 
 ## Conclusion
 
-The pipeline is functional end to end on both dataset families and its
-evaluation is now leak-free. The corrected full-schedule run achieves
-performance at the same general level as the 2024 report, but it is not a
-direct reproduction: the hyperparameters and epoch budget match, but the
-evaluation protocol differs. Phase 7 (adversarial, optional) is the only guide item not
-exercised.
+The pipeline is functional end to end on both dataset families, and its
+evaluation is now leak-free. The corrected full-schedule run passed
+fresh-process verification. On a real, naturally distributed hold-out set
+of 1,059,391 rows it gave:
+
+- 383 false alarms among 83,390 benign rows (false-positive rate 0.459%);
+- 322 missed attacks among 976,001 malicious rows.
+
+This is at the same general level as the 2024 report, but it is not a
+direct reproduction. The hyperparameters and epoch budget match, but the
+evaluation protocol differs.
+
+Limits remain:
+
+- the result comes from a single seed;
+- rows are split at random within devices;
+- with 92.1% of rows malicious, flagging everything would already reach
+  92.1% accuracy.
+
+Per-device hold-out evaluation and k-fold evaluation are roadmap Phase 3.
+Phase 7 (adversarial, optional) is the only guide item not exercised.

@@ -1,0 +1,10 @@
+gate_started:  2026-11-18T15:11:51Z
+gate_commit:   4e60127408401e23d15d4dc66c7867c6d587aed1
+gate_script_sha256: 362d3f54259831abf4b68a5d5209724ceb8da32ca1957e3e47cb663cd430fd47
+worktree_at_start: clean
+training_exit: 0
+pytest_exit:   0
+verify_exit:   0
+worktree_changed_during_gate: no
+allow_dirty:   no
+verdict: PASSED

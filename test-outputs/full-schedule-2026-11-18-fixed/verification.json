@@ -1,0 +1,62 @@
+{
+  "passed": true,
+  "checks": {
+    "split_sizes_match": true,
+    "test_class_counts_match": true,
+    "pca_components_match": true,
+    "hidden_relu_layer_present": true,
+    "hidden_dense_is_linear": true,
+    "no_training_true_in_graph": true,
+    "predict_deterministic": true,
+    "eager_deterministic": true,
+    "eager_matches_predict": true,
+    "predict_matches_numpy_forward_pass_with_relu": true,
+    "gpu_graph_matches_cpu": true,
+    "threshold_reproduced": true,
+    "test_confusion_counts_exact": true,
+    "test_metrics_match": true,
+    "realtime_confusion_counts_exact": true,
+    "realtime_metrics_match": true
+  },
+  "details": {
+    "provenance": {
+      "training_commit": "71bf719571c117e4cde269595626778d3c61a31c",
+      "training_commit_source": "launcher.log",
+      "verification_commit": "4e60127408401e23d15d4dc66c7867c6d587aed1",
+      "verification_worktree_dirty_paths": [],
+      "src_changes_since_training": "src/iot_anomaly/cli/process_pcap.py | 4 +++-\n 1 file changed, 3 insertions(+), 1 deletion(-)"
+    },
+    "max_abs_diff_eager_vs_predict": 1.1920928955078125e-07,
+    "max_abs_diff_predict_vs_numpy_relu": 1.1920928955078125e-07,
+    "max_abs_diff_predict_vs_numpy_no_relu": 0.9553290605545044,
+    "max_abs_diff_gpu_predict_vs_cpu": 2.5033950805664062e-06,
+    "threshold_run": 0.11759631335735321,
+    "threshold_fresh": 0.11759631335735321
+  },
+  "fresh_process_metrics": {
+    "test": {
+      "accuracy": 0.9993345233251935,
+      "precision": 0.9996076068938243,
+      "recall": 0.9996700823052436,
+      "f1": 0.9996388436233872,
+      "fpr": 0.004592876843746253,
+      "auc_roc": 0.9999100300607382,
+      "tn": 83007,
+      "fp": 383,
+      "fn": 322,
+      "tp": 975679
+    },
+    "realtime": {
+      "accuracy": 0.9993515154432774,
+      "precision": 0.999640375116417,
+      "recall": 0.9996557384103721,
+      "f1": 0.9996480567043661,
+      "fpr": 0.004209087311580387,
+      "auc_roc": 0.9999427647569414,
+      "tn": 27680,
+      "fp": 117,
+      "fn": 112,
+      "tp": 325222
+    }
+  }
+}

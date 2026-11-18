@@ -1,0 +1,20 @@
+scripts/verify_run.py:150: RuntimeWarning: overflow encountered in exp
+  without_relu = 1 / (1 + np.exp(-((h @ w1 + b1) @ w2 + b2)))
+VERIFICATION PASSED
+  ok   split_sizes_match
+  ok   test_class_counts_match
+  ok   pca_components_match
+  ok   hidden_relu_layer_present
+  ok   hidden_dense_is_linear
+  ok   no_training_true_in_graph
+  ok   predict_deterministic
+  ok   eager_deterministic
+  ok   eager_matches_predict
+  ok   predict_matches_numpy_forward_pass_with_relu
+  ok   gpu_graph_matches_cpu
+  ok   threshold_reproduced
+  ok   test_confusion_counts_exact
+  ok   test_metrics_match
+  ok   realtime_confusion_counts_exact
+  ok   realtime_metrics_match
+verify exit 0

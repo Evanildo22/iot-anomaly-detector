@@ -423,31 +423,41 @@ that the evaluation was not strictly held-out. The refactored system
 enforces a clean separation between training and evaluation, uses all
 feature families correctly, and corrects the class imbalance handling.
 
-*(Notice, 2026-11-18: the figures in this paragraph were produced before
-BUG-28 and BUG-29 were found (encoder dropout active at inference; hidden
-ReLU dropped on the Apple GPU) and are not reliable; a rerun is in
-progress. See BUG_ANALYSIS.md section 3c.)*
-
 In November 2026 the corrected, split-first pipeline was run on all nine
-N-BaIoT devices (7,062,606 rows). A shortened 2 + 3 epoch run was followed
-by the report's full 30 + 50 epoch schedule (early stopping ended the two
-phases at epochs 25 and 43). On 1,059,391 real held-out rows with their
-natural 92.13% malicious share, the full-schedule model reached accuracy
-0.9991, precision 0.9996, recall 0.9995, F1 0.9995 and AUC-ROC 0.9999, with
-425 false alarms among 83,390 benign rows (false-positive rate 0.51%) and
-501 missed attacks among 976,001 malicious rows; the shortened run, on the
-identical split, gave 475 false alarms and 803 missed attacks. Performance
-therefore remained strong once the leakage was removed. This is at the same
-general level as the 2024 report, but it is not a direct reproduction:
-although the hyperparameters and epoch budget now match, the evaluation
-protocol differs. The leaky pipeline was also rerun (shortened schedule),
-but its test set was roughly balanced and mostly synthetic, so its scores
+N-BaIoT devices (7,062,606 rows) with the report's full 30 + 50 epoch
+schedule. Early stopping ended the two phases at epochs 25 and 28. The
+model included the fixes for two later-found bugs: BUG-28, where encoder
+dropout stayed active at inference, and BUG-29, where the hidden ReLU was
+dropped on the Apple GPU. An earlier run without these fixes was discarded
+(see BUG_ANALYSIS.md section 3c).
+
+The exported model was reloaded in a fresh process, which reproduced the
+run's exact confusion counts, and the acceptance gate passed. On 1,059,391
+real held-out rows with their natural 92.13% malicious share, the model
+reached:
+
+- accuracy 0.9993, precision 0.9996, recall 0.9997, F1 0.9996 and AUC-ROC
+  0.9999;
+- 383 false alarms among 83,390 benign rows (false-positive rate 0.46%);
+- 322 missed attacks among 976,001 malicious rows.
+
+Performance therefore remained strong once the leakage was removed. This
+is at the same general level as the 2024 report, but it is not a direct
+reproduction: although the hyperparameters and epoch budget now match, the
+evaluation protocol differs. The leaky pipeline was also rerun on a
+shortened schedule, but its test set was roughly balanced and mostly
+synthetic, and that run predates the BUG-28/29 fixes. Its scores therefore
 cannot be compared metric-for-metric with the corrected ones, and the
 experiment does not show how much the leakage inflated the original
-figures. Two further limits remain: with 92.1% of rows malicious, accuracy
-alone is a weak measure, and a random row split keeps test traffic from
-the same devices as the training traffic, so generalisation to unseen
-devices is not yet measured.
+figures.
+
+Three further limits remain:
+
+- With 92.1% of rows malicious, accuracy alone is a weak measure.
+- A random row split keeps test traffic from the same devices as the
+  training traffic, so generalisation to unseen devices is not yet
+  measured.
+- The figures come from a single seed.
 
 On the model side, the architectural separation of the encoder from
 the full autoencoder is the most consequential change. In the original

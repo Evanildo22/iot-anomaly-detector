@@ -319,15 +319,6 @@ realtime_inference(
 
 ## Results
 
-> **Notice (2026-11-18): rerun in progress.** Writing the test suite
-> exposed two model bugs that affect every figure below: the encoder's
-> dropout stayed active at prediction time (BUG-28), and on Apple GPUs the
-> classifier's hidden ReLU was silently dropped (BUG-29). Re-evaluating the
-> saved model in a fresh process gave a markedly higher false-positive rate,
-> so these figures are not reliable. Both bugs are fixed and the
-> full-schedule training is being rerun; this section will be replaced with
-> its results.
-
 N-BaIoT, all nine devices combined (7,062,606 rows, 92.1% malicious), with
 the report's hyperparameters, the full 30 + 50 epoch schedule and seed 42,
 evaluated on a held-out test split of 1,059,391 real rows (83,390 benign,
@@ -335,18 +326,33 @@ evaluated on a held-out test split of 1,059,391 real rows (83,390 benign,
 
 | Metric | 2024 report | 2026 leak-free pipeline |
 |---|---|---|
-| Accuracy | 99.41% | **99.91%** |
+| Accuracy | 99.41% | **99.93%** |
 | Precision | 99.38% | **99.96%** |
-| Recall | 99.54% | **99.95%** |
-| F1-Score | 99.46% | **99.95%** |
+| Recall | 99.54% | **99.97%** |
+| F1-Score | 99.46% | **99.96%** |
 | AUC-ROC | 99.97% | **99.99%** |
-| False-positive rate | — | **0.51%** (425 of 83,390 benign rows) |
-| Missed attacks | — | **501** of 976,001 malicious rows |
+| False-positive rate | — | **0.46%** (383 of 83,390 benign rows) |
+| Missed attacks | — | **322** of 976,001 malicious rows |
 
-Training took 6.9 hours on an Apple M2 Max (Metal GPU). Early stopping
+Training took 4.7 hours on an Apple M2 Max (Metal GPU). Early stopping
 (patience 10) ended pretraining at epoch 25 (best epoch 15) and fine-tuning
-at epoch 43 (best epoch 33). A separate 353,131-row "real-time" split gave
-F1 99.95% and a false-positive rate of 0.45%.
+at epoch 28 (best epoch 18). A separate 353,131-row "real-time" split gave
+F1 99.96% and a false-positive rate of 0.42% (117 of 27,797 benign rows).
+
+**How the result was verified.** The exported model was reloaded in a fresh
+process. That process rebuilt the split and the preprocessing, and the
+result was accepted only after it reproduced the exact confusion counts and
+the threshold. The same check confirmed that:
+
+- inference is deterministic, with no dropout active;
+- the hidden ReLU is applied;
+- the GPU output matches the CPU.
+
+The model regression tests also had to pass on the training machine, and
+the acceptance gate had to pass from a clean, committed tree
+(`scripts/acceptance_gate.sh`). This rerun replaces an earlier one that was
+affected by two model bugs (BUG-28 and BUG-29; see
+[BUG_ANALYSIS.md](BUG_ANALYSIS.md)).
 
 **How the evaluation is protected.** The raw rows are split first
 (stratified 65/15/15/5). Feature selection, scaling, PCA and SMOTE are fitted
@@ -361,15 +367,17 @@ natural class balance and no synthetic rows.
   test set was drawn after SMOTE resampling, so its class balance and
   composition differ, and the figures cannot be compared metric-for-metric.
 - Because 92.1% of rows are malicious, flagging everything would already
-  reach 92.1% accuracy. The false-positive rate (0.51% of benign traffic
+  reach 92.1% accuracy. The false-positive rate (0.46% of benign traffic
   flagged) is the more telling figure for the benign class.
 - Rows are split at random, so test traffic comes from the same devices as
   the training traffic. Evaluation on held-out devices is planned.
+- The figures come from a single seed, so they have no confidence interval
+  yet.
 
 Full details, including exact confusion counts, are in
 [test-outputs/VALIDATION_2026-11-16.md](test-outputs/VALIDATION_2026-11-16.md).
-The run's metrics, plots and condensed training log are in
-[test-outputs/full-schedule-2026-11-18/](test-outputs/full-schedule-2026-11-18/).
+The run's metrics, verification report, plots and condensed training log are in
+[test-outputs/full-schedule-2026-11-18-fixed/](test-outputs/full-schedule-2026-11-18-fixed/).
 
 ---
 

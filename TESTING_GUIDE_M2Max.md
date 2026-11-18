@@ -769,22 +769,22 @@ python scripts/train.py \
 **Reference results.** The 2024 report published accuracy 0.9941,
 precision 0.9938, recall 0.9954, F1 0.9946 and AUC-ROC 0.9997. The 2026
 leak-free pipeline, run with this full 30 + 50 epoch schedule on the test
-machine (6.9 hours; early stopping at epochs 25 and 43), produced:
+machine (4.7 hours; early stopping at epochs 25 and 28), produced the
+following results. They were verified in a fresh process and the acceptance
+gate passed (Step 4.4).
 ```
 ── Test-set results ──────────────────────────────
-  accuracy     0.9991
+  accuracy     0.9993
   precision    0.9996
-  recall       0.9995
-  f1           0.9995
+  recall       0.9997
+  f1           0.9996
   auc_roc      0.9999
-  tn 82965 | fp 425 | fn 501 | tp 975500
+  tn 83007 | fp 383 | fn 322 | tp 975679
 ```
-*(Notice, 2026-11-18: these values predate the BUG-28/BUG-29 fixes and
-will be replaced by the rerun's results.)* These are reference values from
-one run with seed 42. Small differences
+These are reference values from one run with seed 42. Small differences
 are expected on other hardware or library versions, because GPU training
 is not bit-for-bit deterministic. The full record is in
-`test-outputs/full-schedule-2026-11-18/`.
+`test-outputs/full-schedule-2026-11-18-fixed/`.
 
 **Verify saved artefacts:**
 ```bash
